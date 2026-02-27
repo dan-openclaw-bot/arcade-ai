@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Generation } from '@/lib/types';
-import { Download, Trash2, AlertCircle, PlayCircle } from 'lucide-react';
+import { Download, Trash2, AlertCircle } from 'lucide-react';
 import { IMAGE_MODELS, VIDEO_MODELS } from '@/lib/types';
 
 interface GenerationCardProps {
@@ -21,7 +20,7 @@ export default function GenerationCard({ generation, onClick, onDeleted }: Gener
 
     async function handleDelete(e: React.MouseEvent) {
         e.stopPropagation();
-        if (!confirm('Supprimer cette génération ?')) return;
+        if (!confirm('Delete this generation?')) return;
         setDeleting(true);
         await fetch(`/api/generations/${generation.id}`, { method: 'DELETE' });
         onDeleted(generation.id);
@@ -40,37 +39,29 @@ export default function GenerationCard({ generation, onClick, onDeleted }: Gener
         URL.revokeObjectURL(url);
     }
 
-    // Aspect ratio to CSS
-    const aspectClass =
-        generation.aspect_ratio === '9:16'
-            ? 'aspect-[9/16]'
-            : generation.aspect_ratio === '16:9'
-                ? 'aspect-video'
-                : 'aspect-square';
+    const aspectClass = generation.aspect_ratio === '9:16' ? 'aspect-[9/16]' : generation.aspect_ratio === '16:9' ? 'aspect-video' : 'aspect-square';
 
     return (
         <div
-            className={`group relative rounded-xl overflow-hidden cursor-pointer ${aspectClass} bg-[#1a1a1a]`}
+            className={`group relative rounded-xl overflow-hidden cursor-pointer ${aspectClass}`}
+            style={{ background: '#3a3a3a' }}
             onClick={onClick}
         >
-            {/* Content */}
             {isGenerating && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#111]">
-                    <div className="relative">
-                        <div className="w-8 h-8 rounded-full border-2 border-violet-500/20" />
-                        <div className="absolute inset-0 w-8 h-8 rounded-full border-2 border-violet-400 border-t-transparent animate-spin" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ background: '#3a3a3a' }}>
+                    <div className="relative w-8 h-8">
+                        <div className="absolute inset-0 rounded-full border-2 border-gray-600" />
+                        <div className="absolute inset-0 rounded-full border-2 border-gray-300 border-t-transparent animate-spin" />
                     </div>
-                    <p className="text-xs text-gray-500">
-                        {generation.status === 'pending' ? 'En attente...' : 'Génération...'}
-                    </p>
+                    <p className="text-xs text-gray-400">{generation.status === 'pending' ? 'Waiting...' : 'Generating...'}</p>
                 </div>
             )}
 
             {isError && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#111] p-3">
-                    <AlertCircle className="w-6 h-6 text-red-400" />
-                    <p className="text-xs text-red-400 text-center line-clamp-3">
-                        {generation.error_message || 'Erreur'}
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-3" style={{ background: '#3a3a3a' }}>
+                    <AlertCircle className="w-6 h-6 text-gray-500" />
+                    <p className="text-xs text-gray-400 text-center leading-relaxed">
+                        An error has occurred. Used credits were not counted. Please contact support for further information.
                     </p>
                 </div>
             )}
@@ -85,56 +76,29 @@ export default function GenerationCard({ generation, onClick, onDeleted }: Gener
                             loading="lazy"
                         />
                     ) : (
-                        <div className="relative w-full h-full">
-                            <video
-                                src={generation.output_url}
-                                className="w-full h-full object-cover"
-                                muted
-                                loop
-                                onMouseEnter={(e) => (e.target as HTMLVideoElement).play()}
-                                onMouseLeave={(e) => {
-                                    const v = e.target as HTMLVideoElement;
-                                    v.pause();
-                                    v.currentTime = 0;
-                                }}
-                            />
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-0">
-                                <PlayCircle className="w-10 h-10 text-white/70" />
-                            </div>
-                        </div>
+                        <video
+                            src={generation.output_url}
+                            className="w-full h-full object-cover"
+                            muted
+                            loop
+                            onMouseEnter={(e) => (e.target as HTMLVideoElement).play()}
+                            onMouseLeave={(e) => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0; }}
+                        />
                     )}
 
                     {/* Hover overlay */}
-                    <div className="card-overlay absolute inset-0 bg-black/50 flex flex-col justify-between p-2">
-                        {/* Top actions */}
+                    <div className="card-overlay absolute inset-0 flex flex-col justify-between p-2" style={{ background: 'rgba(0,0,0,0.45)' }}>
                         <div className="flex justify-end gap-1">
-                            <button
-                                onClick={handleDownload}
-                                className="p-1.5 rounded-lg bg-black/50 text-white hover:bg-black/70 transition-colors"
-                                title="Télécharger"
-                            >
-                                <Download className="w-3.5 h-3.5" />
+                            <button onClick={handleDownload} className="p-1.5 rounded-lg bg-black/40 text-white hover:bg-black/60 transition-colors" title="Download">
+                                <Download className="w-3 h-3" />
                             </button>
-                            <button
-                                onClick={handleDelete}
-                                disabled={deleting}
-                                className="p-1.5 rounded-lg bg-black/50 text-white hover:bg-red-500/70 transition-colors"
-                                title="Supprimer"
-                            >
-                                <Trash2 className="w-3.5 h-3.5" />
+                            <button onClick={handleDelete} disabled={deleting} className="p-1.5 rounded-lg bg-black/40 text-white hover:bg-red-600/70 transition-colors" title="Delete">
+                                <Trash2 className="w-3 h-3" />
                             </button>
                         </div>
-
-                        {/* Bottom info */}
                         <div>
-                            <p className="text-white text-xs font-medium line-clamp-2 leading-tight">
-                                {generation.prompt}
-                            </p>
-                            <div className="flex items-center gap-1.5 mt-1">
-                                <span className="text-gray-400 text-xs">{modelInfo?.name || generation.model}</span>
-                                <span className="text-gray-600 text-xs">•</span>
-                                <span className="text-gray-400 text-xs">{generation.aspect_ratio}</span>
-                            </div>
+                            <p className="text-white text-xs leading-tight line-clamp-2 drop-shadow">{generation.prompt}</p>
+                            <p className="text-gray-300 text-xs mt-0.5 opacity-70">{modelInfo?.name} · {generation.aspect_ratio}</p>
                         </div>
                     </div>
                 </>
@@ -142,3 +106,6 @@ export default function GenerationCard({ generation, onClick, onDeleted }: Gener
         </div>
     );
 }
+
+// Need to add useState import
+import { useState } from 'react';

@@ -12,11 +12,9 @@ interface GenerationsGridProps {
 export default function GenerationsGrid({ generations, onCardClick, onDeleted }: GenerationsGridProps) {
     if (generations.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-                <div className="text-6xl mb-4">✨</div>
-                <p className="text-white font-semibold text-lg mb-2">Prêt à créer</p>
+            <div className="flex flex-col items-center justify-center h-full text-center px-4">
                 <p className="text-gray-500 text-sm max-w-xs">
-                    Écrivez un prompt dans la barre ci-dessous et choisissez de générer une image ou une vidéo.
+                    Describe what you want to create and click generate.
                 </p>
             </div>
         );
@@ -24,9 +22,9 @@ export default function GenerationsGrid({ generations, onCardClick, onDeleted }:
 
     return (
         <div
-            className="grid gap-3 p-6"
+            className="grid gap-2 p-4"
             style={{
-                gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(175px, 1fr))',
                 alignItems: 'start',
             }}
         >

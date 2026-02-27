@@ -41,7 +41,7 @@ export default function ExpandedView({ generation, allGenerations, onClose, onNa
     }
 
     async function handleDelete() {
-        if (!confirm('Supprimer cette génération ?')) return;
+        if (!confirm('Delete this generation?')) return;
         await fetch(`/api/generations/${generation.id}`, { method: 'DELETE' });
         onDeleted(generation.id);
         onClose();
@@ -49,129 +49,120 @@ export default function ExpandedView({ generation, allGenerations, onClose, onNa
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-stretch bg-black/90 animate-fade-in"
+            className="fixed inset-0 z-50 flex animate-fade-in"
+            style={{ background: 'rgba(0,0,0,0.85)' }}
             onClick={onClose}
         >
-            {/* Left nav */}
+            {/* Nav prev */}
             <button
                 onClick={(e) => { e.stopPropagation(); prev && onNavigate(prev); }}
-                className={`absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10 ${!prev ? 'opacity-20 pointer-events-none' : ''}`}
+                className={`absolute left-4 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center z-10 transition-all ${!prev ? 'opacity-20 pointer-events-none' : 'bg-white/10 hover:bg-white/20 text-white'}`}
             >
-                <ChevronLeft className="w-6 h-6" />
+                <ChevronLeft className="w-5 h-5" />
             </button>
 
-            {/* Right nav */}
+            {/* Nav next */}
             <button
                 onClick={(e) => { e.stopPropagation(); next && onNavigate(next); }}
-                className={`absolute right-80 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10 ${!next ? 'opacity-20 pointer-events-none' : ''}`}
+                className={`absolute z-10 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center transition-all ${!next ? 'opacity-20 pointer-events-none' : 'bg-white/10 hover:bg-white/20 text-white'}`}
+                style={{ right: 'calc(340px + 16px)' }}
             >
-                <ChevronRight className="w-6 h-6" />
+                <ChevronRight className="w-5 h-5" />
             </button>
 
-            {/* Main image/video area */}
+            {/* Media area */}
             <div
-                className="flex-1 flex items-center justify-center p-16"
+                className="flex-1 flex items-center justify-center p-12"
                 onClick={(e) => e.stopPropagation()}
             >
-                {generation.output_url && generation.status === 'done' && (
-                    <>
-                        {generation.type === 'image' ? (
-                            <img
-                                src={generation.output_url}
-                                alt={generation.prompt}
-                                className="max-h-full max-w-full object-contain rounded-xl shadow-2xl"
-                            />
-                        ) : (
-                            <video
-                                src={generation.output_url}
-                                className="max-h-full max-w-full rounded-xl shadow-2xl"
-                                controls
-                                autoPlay
-                                loop
-                            />
-                        )}
-                    </>
+                {generation.output_url && generation.status === 'done' ? (
+                    generation.type === 'image' ? (
+                        <img
+                            src={generation.output_url}
+                            alt={generation.prompt}
+                            className="max-h-full max-w-full object-contain rounded-2xl shadow-2xl"
+                        />
+                    ) : (
+                        <video
+                            src={generation.output_url}
+                            className="max-h-full max-w-full rounded-2xl shadow-2xl"
+                            controls autoPlay loop
+                        />
+                    )
+                ) : (
+                    <div className="text-gray-400 text-sm">No preview available</div>
                 )}
             </div>
 
-            {/* Right panel */}
+            {/* Right panel — WHITE like Arcade */}
             <div
-                className="w-80 bg-[#111] border-l border-white/5 flex flex-col"
+                className="w-[340px] shrink-0 flex flex-col"
+                style={{ background: '#fff', borderLeft: '1px solid #e5e7eb' }}
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-white/5">
-                    <h3 className="text-white font-semibold text-sm">Détails</h3>
-                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white">
-                        <X className="w-4 h-4" />
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={handleDownload}
+                            disabled={!generation.output_url}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 hover:bg-gray-700 text-white text-sm font-medium transition-colors disabled:opacity-40"
+                        >
+                            <Download className="w-3.5 h-3.5" />
+                            Download HD
+                        </button>
+                        <button
+                            onClick={handleDelete}
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </button>
+                    </div>
+                    <button onClick={onClose} className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 text-xs transition-colors">
+                        ✕
                     </button>
                 </div>
 
-                {/* Info */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {/* Details */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-5">
                     {/* Model */}
                     <div>
-                        <p className="text-xs text-gray-500 mb-1 font-medium uppercase tracking-wider">Modèle</p>
-                        <p className="text-white text-sm">{modelInfo?.name || generation.model}</p>
+                        <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">Model</p>
+                        <p className="text-gray-900 text-sm font-medium">{modelInfo?.name || generation.model}</p>
                         {modelInfo && (
-                            <div className="flex items-center gap-2 mt-1">
-                                {modelInfo.pricePerImage && (
-                                    <span className="text-xs text-emerald-400">${modelInfo.pricePerImage.toFixed(3)}/image</span>
-                                )}
-                                {modelInfo.pricePerSecond && (
-                                    <span className="text-xs text-emerald-400">${modelInfo.pricePerSecond.toFixed(2)}/sec</span>
-                                )}
-                            </div>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                                {modelInfo.pricePerImage != null && `$${modelInfo.pricePerImage.toFixed(3)}/image · `}
+                                {modelInfo.pricePerSecond != null && `$${modelInfo.pricePerSecond.toFixed(2)}/sec · `}
+                                {modelInfo.quality === 'ultra' ? 'Ultra quality' : modelInfo.quality === 'standard' ? 'Standard quality' : 'Fast'}
+                            </p>
                         )}
                     </div>
 
                     {/* Format */}
                     <div>
-                        <p className="text-xs text-gray-500 mb-1 font-medium uppercase tracking-wider">Format</p>
-                        <div className="flex items-center gap-2">
-                            <span className="text-white text-sm">{generation.aspect_ratio}</span>
-                            {generation.type === 'video' && generation.duration_seconds && (
-                                <span className="text-gray-400 text-sm">• {generation.duration_seconds}s</span>
-                            )}
-                            {generation.resolution && (
-                                <span className="text-gray-400 text-sm">• {generation.resolution}</span>
-                            )}
+                        <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">Format</p>
+                        <div className="flex items-center gap-2 text-sm text-gray-700">
+                            <span>{generation.aspect_ratio}</span>
+                            {generation.type === 'video' && generation.duration_seconds && (<><span className="text-gray-300">·</span><span>{generation.duration_seconds}s</span></>)}
+                            {generation.resolution && (<><span className="text-gray-300">·</span><span>{generation.resolution}</span></>)}
                         </div>
                     </div>
 
                     {/* Date */}
                     <div>
-                        <p className="text-xs text-gray-500 mb-1 font-medium uppercase tracking-wider">Créé le</p>
-                        <p className="text-white text-sm">
-                            {new Date(generation.created_at).toLocaleDateString('fr-FR', {
-                                day: 'numeric',
-                                month: 'long',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                            })}
+                        <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">Date</p>
+                        <p className="text-gray-700 text-sm">
+                            {new Date(generation.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </p>
                     </div>
-
-                    {/* Preprompt */}
-                    {generation.preprompt && (
-                        <div>
-                            <p className="text-xs text-gray-500 mb-1 font-medium uppercase tracking-wider">Pré-prompt</p>
-                            <p className="text-gray-300 text-sm">{generation.preprompt.name}</p>
-                        </div>
-                    )}
 
                     {/* Actor */}
                     {generation.actor && (
                         <div>
-                            <p className="text-xs text-gray-500 mb-1 font-medium uppercase tracking-wider">Acteur</p>
+                            <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">Actor</p>
                             <div className="flex items-center gap-2">
-                                <img
-                                    src={generation.actor.image_url}
-                                    alt={generation.actor.name}
-                                    className="w-6 h-6 rounded-full object-cover"
-                                />
-                                <p className="text-gray-300 text-sm">{generation.actor.name}</p>
+                                <img src={generation.actor.image_url} alt={generation.actor.name} className="w-7 h-7 rounded-full object-cover border border-gray-200" />
+                                <p className="text-gray-700 text-sm">{generation.actor.name}</p>
                             </div>
                         </div>
                     )}
@@ -179,45 +170,22 @@ export default function ExpandedView({ generation, allGenerations, onClose, onNa
                     {/* Prompt */}
                     <div>
                         <div className="flex items-center justify-between mb-1">
-                            <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Prompt</p>
-                            <button
-                                onClick={copyPrompt}
-                                className="text-xs text-gray-500 hover:text-white flex items-center gap-1 transition-colors"
-                            >
-                                {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                                {copied ? 'Copié !' : 'Copier'}
+                            <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">Prompt</p>
+                            <button onClick={copyPrompt} className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 transition-colors">
+                                {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                                {copied ? 'Copied!' : 'Copy'}
                             </button>
                         </div>
-                        <p className="text-gray-300 text-sm leading-relaxed bg-white/5 rounded-lg p-3">
+                        <p className="text-gray-700 text-sm leading-relaxed bg-gray-50 rounded-xl p-3 border border-gray-100">
                             {generation.prompt}
                         </p>
                     </div>
 
-                    {/* Error */}
                     {generation.error_message && (
-                        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-                            <p className="text-red-400 text-xs">{generation.error_message}</p>
+                        <div className="bg-red-50 border border-red-100 rounded-xl p-3">
+                            <p className="text-red-600 text-xs leading-relaxed">{generation.error_message}</p>
                         </div>
                     )}
-                </div>
-
-                {/* Actions */}
-                <div className="p-4 border-t border-white/5 space-y-2">
-                    <button
-                        onClick={handleDownload}
-                        disabled={!generation.output_url}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                        <Download className="w-4 h-4" />
-                        Télécharger HD
-                    </button>
-                    <button
-                        onClick={handleDelete}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-red-500/20 text-gray-400 hover:text-red-400 text-sm transition-colors"
-                    >
-                        <Trash2 className="w-4 h-4" />
-                        Supprimer
-                    </button>
                 </div>
             </div>
         </div>
