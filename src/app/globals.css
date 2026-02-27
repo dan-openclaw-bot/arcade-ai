@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sidebar-width: 240px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Shimmer loading effect */
+.shimmer {
+  background: linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Card hover overlay */
+.card-overlay {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.group:hover .card-overlay {
+  opacity: 1;
+}
+
+/* Glassmorphism */
+.glass {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Sidebar styling */
+.sidebar-item {
+  @apply flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-gray-400 cursor-pointer transition-colors duration-150;
+}
+.sidebar-item:hover {
+  @apply bg-white/5 text-white;
+}
+.sidebar-item.active {
+  @apply bg-white/10 text-white font-medium;
+}
+
+/* Animated gradient border */
+@keyframes gradient-rotate {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.gradient-border {
+  background: linear-gradient(135deg, #7c3aed, #db2777, #f59e0b);
+  background-size: 300% 300%;
+  animation: gradient-rotate 4s ease infinite;
+  padding: 1px;
+  border-radius: 12px;
+}
+
+/* Pulse animation for generating state */
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2); opacity: 0; }
+}
+.pulse-ring {
+  animation: pulse-ring 1.5s ease-out infinite;
+}
