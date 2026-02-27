@@ -54,38 +54,50 @@ export async function generateImages(
     }
 
     // Imagen models — use generateImages
+    // Imagen 4 via Gemini API often only supports numberOfImages: 1 per request
     const config: Record<string, unknown> = {
-        numberOfImages: Math.min(count, 4),
+        numberOfImages: 1,
         aspectRatio: mappedRatio,
         outputMimeType: 'image/jpeg',
     };
 
-    // Add reference image if provided (via URL - we pass it in the prompt for now)
-    // Imagen 4 supports referenceImages via referenceImages config
     const finalPrompt = referenceImageUrl
         ? `${prompt} [Style reference: ${referenceImageUrl}]`
         : prompt;
 
-    const response = await genai.models.generateImages({
-        model,
-        prompt: finalPrompt,
-        config,
-    });
+    const actualCount = Math.min(count, 4);
+    const generatePromises = Array.from({ length: actualCount }, () =>
+        genai.models.generateImages({
+            model,
+            prompt: finalPrompt,
+            config,
+        })
+    );
 
-    if (!response.generatedImages || response.generatedImages.length === 0) {
+    const responses = await Promise.all(generatePromises);
+
+    const results: { base64: string; mimeType: string }[] = [];
+    for (const response of responses) {
+        if (response.generatedImages && response.generatedImages.length > 0) {
+            const img = response.generatedImages[0];
+            const bytes = img.image?.imageBytes;
+            const base64 =
+                typeof bytes === 'string'
+                    ? bytes
+                    : bytes
+                        ? Buffer.from(bytes as Buffer).toString('base64')
+                        : '';
+            if (base64) {
+                results.push({ base64, mimeType: 'image/jpeg' });
+            }
+        }
+    }
+
+    if (results.length === 0) {
         throw new Error('No images generated');
     }
 
-    return response.generatedImages.map((img) => {
-        const bytes = img.image?.imageBytes;
-        const base64 =
-            typeof bytes === 'string'
-                ? bytes
-                : bytes
-                    ? Buffer.from(bytes as Buffer).toString('base64')
-                    : '';
-        return { base64, mimeType: 'image/jpeg' };
-    });
+    return results;
 }
 
 /**
