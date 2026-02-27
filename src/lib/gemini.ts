@@ -12,7 +12,8 @@ export async function generateImages(
     prompt: string,
     model: string,
     count: number = 1,
-    aspectRatio: string = '1:1'
+    aspectRatio: string = '1:1',
+    referenceImageUrl?: string
 ): Promise<{ base64: string; mimeType: string }[]> {
     const aspectRatioMap: Record<string, string> = {
         '1:1': '1:1',
@@ -23,9 +24,12 @@ export async function generateImages(
 
     // Gemini 2.0 Flash uses generateContent with responseModalities
     if (model.startsWith('gemini-')) {
+        const contents: string = referenceImageUrl
+            ? `${prompt}\n\nReference image URL: ${referenceImageUrl}`
+            : prompt;
         const response = await genai.models.generateContent({
             model,
-            contents: prompt,
+            contents,
             config: {
                 responseModalities: ['Text', 'Image'],
             },
@@ -50,14 +54,22 @@ export async function generateImages(
     }
 
     // Imagen models — use generateImages
+    const config: Record<string, unknown> = {
+        numberOfImages: Math.min(count, 4),
+        aspectRatio: mappedRatio,
+        outputMimeType: 'image/jpeg',
+    };
+
+    // Add reference image if provided (via URL - we pass it in the prompt for now)
+    // Imagen 4 supports referenceImages via referenceImages config
+    const finalPrompt = referenceImageUrl
+        ? `${prompt} [Style reference: ${referenceImageUrl}]`
+        : prompt;
+
     const response = await genai.models.generateImages({
         model,
-        prompt,
-        config: {
-            numberOfImages: Math.min(count, 4),
-            aspectRatio: mappedRatio,
-            outputMimeType: 'image/jpeg',
-        },
+        prompt: finalPrompt,
+        config,
     });
 
     if (!response.generatedImages || response.generatedImages.length === 0) {

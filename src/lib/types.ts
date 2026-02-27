@@ -76,9 +76,9 @@ export interface ModelInfo {
 
 export const IMAGE_MODELS: ModelInfo[] = [
     {
-        id: 'imagen-4.0-flash-preview-05-20',
+        id: 'imagen-4.0-fast-generate-001',
         name: 'Nano Banana',
-        description: 'Fast generation, great for iterations — Gemini 2.5 Flash Image',
+        description: 'Fast generation, great for iterations — Imagen 4 Fast',
         pricePerImage: 0.02,
         speed: 'fast',
         quality: 'draft',
@@ -87,9 +87,9 @@ export const IMAGE_MODELS: ModelInfo[] = [
         available: true,
     },
     {
-        id: 'imagen-4.0-preview-05-20',
+        id: 'imagen-4.0-generate-001',
         name: 'Nano Banana Pro',
-        description: 'High quality, speed/quality balance — Gemini 3 Pro Image',
+        description: 'High quality, speed/quality balance — Imagen 4',
         pricePerImage: 0.04,
         speed: 'standard',
         quality: 'standard',
@@ -99,9 +99,9 @@ export const IMAGE_MODELS: ModelInfo[] = [
         badge: 'RECOMMENDED',
     },
     {
-        id: 'imagen-4.0-ultra-preview-05-20',
+        id: 'imagen-4.0-ultra-generate-001',
         name: 'Nano Banana Ultra',
-        description: 'Maximum quality, 2K resolution, precise prompts',
+        description: 'Maximum quality, 2K resolution, precise prompts — Imagen 4 Ultra',
         pricePerImage: 0.06,
         speed: 'slow',
         quality: 'ultra',
@@ -163,6 +163,7 @@ export interface GenerateImageRequest {
     count: number;
     preprompt_id?: string;
     actor_id?: string;
+    reference_image_url?: string;
 }
 
 export interface GenerateVideoRequest {
