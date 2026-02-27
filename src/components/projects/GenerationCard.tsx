@@ -44,7 +44,7 @@ export default function GenerationCard({ generation, onClick, onDeleted }: Gener
     return (
         <div
             className={`group relative rounded-xl overflow-hidden cursor-pointer ${aspectClass}`}
-            style={{ background: '#3a3a3a' }}
+            style={{ background: '#d8d8d8' }}
             onClick={onClick}
         >
             {isGenerating && (

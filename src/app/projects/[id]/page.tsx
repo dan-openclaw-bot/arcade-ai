@@ -101,10 +101,10 @@ export default function ProjectPage() {
                     </div>
                 </div>
 
-                {/* Main grid area — dark background like Arcade */}
+                {/* Main grid area — light gray like Arcade */}
                 <div
                     className="flex-1 overflow-y-auto"
-                    style={{ background: '#2c2c2c' }}
+                    style={{ background: '#ebebeb' }}
                 >
                     {loading ? (
                         <div className="flex items-center justify-center h-full">
@@ -119,8 +119,8 @@ export default function ProjectPage() {
                     )}
                 </div>
 
-                {/* Prompt bar — floating at bottom */}
-                <div style={{ background: '#2c2c2c', padding: '0' }}>
+                {/* Prompt bar */}
+                <div style={{ background: '#ebebeb' }}>
                     <PromptBar
                         projectId={id}
                         preprompts={preprompts}
