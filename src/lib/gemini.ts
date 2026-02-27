@@ -14,7 +14,6 @@ export async function generateImages(
     count: number = 1,
     aspectRatio: string = '1:1'
 ): Promise<{ base64: string; mimeType: string }[]> {
-    // Map our aspect ratio to Imagen format
     const aspectRatioMap: Record<string, string> = {
         '1:1': '1:1',
         '9:16': '9:16',
@@ -22,7 +21,7 @@ export async function generateImages(
     };
     const mappedRatio = aspectRatioMap[aspectRatio] || '1:1';
 
-    // Gemini 2.0 Flash image gen uses a different API path
+    // Gemini 2.0 Flash uses generateContent with responseModalities
     if (model.startsWith('gemini-')) {
         const response = await genai.models.generateContent({
             model,
@@ -50,7 +49,7 @@ export async function generateImages(
         return results;
     }
 
-    // Imagen models
+    // Imagen models — use generateImages
     const response = await genai.models.generateImages({
         model,
         prompt,
@@ -65,17 +64,21 @@ export async function generateImages(
         throw new Error('No images generated');
     }
 
-    return response.generatedImages.map((img) => ({
-        base64: img.image?.imageBytes
-            ? Buffer.from(img.image.imageBytes as Uint8Array).toString('base64')
-            : '',
-        mimeType: 'image/jpeg',
-    }));
+    return response.generatedImages.map((img) => {
+        const bytes = img.image?.imageBytes;
+        const base64 =
+            typeof bytes === 'string'
+                ? bytes
+                : bytes
+                    ? Buffer.from(bytes as Buffer).toString('base64')
+                    : '';
+        return { base64, mimeType: 'image/jpeg' };
+    });
 }
 
 /**
  * Generate a video using Veo models
- * Returns operation name for polling
+ * Returns the operation object for polling
  */
 export async function generateVideo(
     prompt: string,
@@ -106,7 +109,10 @@ export async function generateVideo(
         config,
     });
 
-    return { operationName: operation.name || '' };
+    // operation.name may be on the raw operation object
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const opName = (operation as any).name || '';
+    return { operationName: opName };
 }
 
 /**
@@ -115,18 +121,24 @@ export async function generateVideo(
 export async function pollVideoOperation(
     operationName: string
 ): Promise<{ done: boolean; videoBase64?: string }> {
-    const op = await genai.operations.getVideosOperation({ operation: { name: operationName } });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const op = await (genai.operations as any).getVideosOperation({
+        operation: { name: operationName },
+    });
 
     if (!op.done) {
         return { done: false };
     }
 
-    const video = op.response?.generatedSamples?.[0]?.video;
-    if (video?.videoBytes) {
-        return {
-            done: true,
-            videoBase64: Buffer.from(video.videoBytes as Uint8Array).toString('base64'),
-        };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const samples = (op.response as any)?.generatedSamples;
+    const videoBytes = samples?.[0]?.video?.videoBytes;
+    if (videoBytes) {
+        const base64 =
+            typeof videoBytes === 'string'
+                ? videoBytes
+                : Buffer.from(videoBytes as Buffer).toString('base64');
+        return { done: true, videoBase64: base64 };
     }
 
     return { done: true };
