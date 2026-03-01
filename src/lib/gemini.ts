@@ -59,17 +59,18 @@ export async function generateImages(
         numberOfImages: 1,
         aspectRatio: mappedRatio,
         outputMimeType: 'image/jpeg',
-        // Robust negative prompt to prevent common AI artifacts
-        negativePrompt: 'blurry, low quality, low resolution, pixelated, deformed, bad anatomy, bad proportions, disfigured, ugly, out of focus, text, watermark, signature',
     };
 
     // Append high-quality modifiers to the raw user prompt like Arcade does behind the scenes
     // We only add this if the prompt doesn't already seem to have its own complex style words
     const qualitySuffix = prompt.length < 150 ? ', highly detailed, masterpiece, 8k resolution, cinematic lighting, professional photography, photorealistic' : '';
 
+    // Add negative prompt instructions directly into the text prompt since the API parameter isn't supported here
+    const negativeInstructions = ' (Do NOT include: blurry, low quality, low resolution, pixelated, deformed, bad anatomy, bad proportions, disfigured, ugly, out of focus, text, watermark, signature)';
+
     const finalPrompt = referenceImageUrl
-        ? `${prompt}${qualitySuffix} [Style reference: ${referenceImageUrl}]`
-        : `${prompt}${qualitySuffix}`;
+        ? `${prompt}${qualitySuffix}${negativeInstructions} [Style reference: ${referenceImageUrl}]`
+        : `${prompt}${qualitySuffix}${negativeInstructions}`;
 
     const actualCount = Math.min(count, 4);
     const generatePromises = Array.from({ length: actualCount }, () =>
