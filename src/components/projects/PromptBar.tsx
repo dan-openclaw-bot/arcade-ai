@@ -201,7 +201,6 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
     const [tab, setTab] = useState<Tab>('image');
     const [prompt, setPrompt] = useState('');
     const [count, setCount] = useState(1);
-    const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showSettings, setShowSettings] = useState(false);
     const [totalSpent, setTotalSpent] = useState(0);
@@ -265,79 +264,96 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
 
     async function handleGenerate() {
         if (!prompt.trim()) return;
-        setLoading(true);
         setError(null);
-        try {
-            if (tab === 'image') {
-                // Upload ref image if provided
-                let refImageUrl: string | undefined;
-                if (refImageFile) {
-                    const fd = new FormData();
-                    fd.append('file', refImageFile);
-                    fd.append('bucket', 'generations');
-                    const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
-                    if (upRes.ok) { const { url } = await upRes.json(); refImageUrl = url; }
+
+        // Capture current values before resetting
+        const currentPrompt = prompt.trim();
+        const currentRefImageFile = refImageFile;
+        const currentTab = tab;
+        const currentImageModel = imageModel;
+        const currentImageAspect = imageAspect;
+        const currentVideoModel = videoModel;
+        const currentVideoAspect = videoAspect;
+        const currentVideoDuration = videoDuration;
+        const currentVideoResolution = videoResolution;
+        const currentCount = count;
+        const currentQualitySuffix = qualitySuffix;
+        const currentNegativePrompt = negativePrompt;
+
+        // Reset UI immediately so the user can queue more generations
+        setPrompt('');
+        setRefImageFile(null);
+        setRefImagePreview(null);
+
+        // Fire and forget — the generation grid polls for status independently
+        (async () => {
+            try {
+                if (currentTab === 'image') {
+                    // Upload ref image if provided
+                    let refImageUrl: string | undefined;
+                    if (currentRefImageFile) {
+                        const fd = new FormData();
+                        fd.append('file', currentRefImageFile);
+                        fd.append('bucket', 'generations');
+                        const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
+                        if (upRes.ok) { const { url } = await upRes.json(); refImageUrl = url; }
+                    }
+
+                    const body: GenerateImageRequest = {
+                        project_id: projectId,
+                        prompt: currentPrompt,
+                        model: currentImageModel,
+                        aspect_ratio: currentImageAspect,
+                        count: currentCount,
+                        reference_image_url: refImageUrl,
+                        quality_suffix: currentQualitySuffix || undefined,
+                        negative_prompt: currentNegativePrompt || undefined,
+                    };
+                    const res = await fetch('/api/generate/image', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+                    });
+                    if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Generation failed'); }
+                    // Track cost
+                    const imgModel = IMAGE_MODELS.find((m) => m.id === currentImageModel);
+                    if (imgModel?.pricePerImage) addSpent(imgModel.pricePerImage * currentCount);
+
+                } else {
+                    // Upload ref image for video
+                    let refImageUrl: string | undefined;
+                    if (currentRefImageFile) {
+                        const fd = new FormData();
+                        fd.append('file', currentRefImageFile);
+                        fd.append('bucket', 'generations');
+                        const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
+                        if (upRes.ok) { const { url } = await upRes.json(); refImageUrl = url; }
+                    }
+                    const body: GenerateVideoRequest = {
+                        project_id: projectId,
+                        prompt: currentPrompt,
+                        model: currentVideoModel,
+                        aspect_ratio: currentVideoAspect,
+                        duration_seconds: currentVideoDuration,
+                        resolution: currentVideoResolution,
+                        count: currentCount,
+                        reference_image_url: refImageUrl,
+                    };
+                    const res = await fetch('/api/generate/video', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+                    });
+                    if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Video generation failed'); }
+                    // Track cost (estimate)
+                    const vidModel = VIDEO_MODELS.find((m) => m.id === currentVideoModel);
+                    if (vidModel?.pricePerSecond) addSpent(vidModel.pricePerSecond * currentVideoDuration * currentCount);
                 }
 
-                const body: GenerateImageRequest = {
-                    project_id: projectId,
-                    prompt: prompt.trim(),
-                    model: imageModel,
-                    aspect_ratio: imageAspect,
-                    count,
-                    reference_image_url: refImageUrl,
-                    quality_suffix: qualitySuffix || undefined,
-                    negative_prompt: negativePrompt || undefined,
-                };
-                const res = await fetch('/api/generate/image', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-                });
-                if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Generation failed'); }
-                // Track cost
-                const imgModel = IMAGE_MODELS.find((m) => m.id === imageModel);
-                if (imgModel?.pricePerImage) addSpent(imgModel.pricePerImage * count);
-
-            } else {
-                // Upload ref image for video
-                let refImageUrl: string | undefined;
-                if (refImageFile) {
-                    const fd = new FormData();
-                    fd.append('file', refImageFile);
-                    fd.append('bucket', 'generations');
-                    const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
-                    if (upRes.ok) { const { url } = await upRes.json(); refImageUrl = url; }
-                }
-                const body: GenerateVideoRequest = {
-                    project_id: projectId,
-                    prompt: prompt.trim(),
-                    model: videoModel,
-                    aspect_ratio: videoAspect,
-                    duration_seconds: videoDuration,
-                    resolution: videoResolution,
-                    count,
-                    reference_image_url: refImageUrl,
-                };
-                const res = await fetch('/api/generate/video', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-                });
-                if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Video generation failed'); }
-                // Track cost (estimate)
-                const vidModel = VIDEO_MODELS.find((m) => m.id === videoModel);
-                if (vidModel?.pricePerSecond) addSpent(vidModel.pricePerSecond * videoDuration * count);
+                onGenerationStarted();
+            } catch (e: unknown) {
+                setError(e instanceof Error ? e.message.replace('Error: ApiError: ', '') : String(e));
             }
-
-            setPrompt('');
-            setRefImageFile(null);
-            setRefImagePreview(null);
-            onGenerationStarted();
-        } catch (e: unknown) {
-            setError(e instanceof Error ? e.message.replace('Error: ApiError: ', '') : String(e));
-        } finally {
-            setLoading(false);
-        }
+        })();
     }
 
-    const canGenerate = prompt.trim().length > 0 && !loading;
+    const canGenerate = prompt.trim().length > 0;
 
     return (
         // Outer: relative container that holds bar + settings popup
@@ -505,14 +521,10 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                             className="w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-sm"
                             style={{ background: canGenerate ? '#111' : '#d1d5db' }}
                         >
-                            {loading ? (
-                                <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-                                    <line x1="12" y1="19" x2="12" y2="5" />
-                                    <polyline points="5 12 12 5 19 12" />
-                                </svg>
-                            )}
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                                <line x1="12" y1="19" x2="12" y2="5" />
+                                <polyline points="5 12 12 5 19 12" />
+                            </svg>
                         </button>
                     </div>
                 </div>
