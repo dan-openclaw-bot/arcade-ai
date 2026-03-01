@@ -24,29 +24,39 @@ export async function generateImages(
     };
     const mappedRatio = aspectRatioMap[aspectRatio] || '1:1';
 
-    // Gemini 2.0 Flash uses generateContent with responseModalities
+    // Gemini multimodal models use generateContent with responseModalities
     if (model.startsWith('gemini-')) {
-        const contents: string = referenceImageUrl
-            ? `${prompt}\n\nReference image URL: ${referenceImageUrl}`
-            : prompt;
-        const response = await genai.models.generateContent({
-            model,
-            contents,
-            config: {
-                responseModalities: ['Text', 'Image'],
-            },
-        });
+        // Build enhanced prompt with quality/negative modifiers
+        let enhancedPrompt = prompt;
+        if (qualitySuffix) enhancedPrompt += `, ${qualitySuffix}`;
+        if (negativePrompt) enhancedPrompt += ` (Do NOT include: ${negativePrompt})`;
+        if (referenceImageUrl) enhancedPrompt += `\n\nReference image URL: ${referenceImageUrl}`;
+
+        const actualCount = Math.min(count, 4);
+        const generatePromises = Array.from({ length: actualCount }, () =>
+            genai.models.generateContent({
+                model,
+                contents: enhancedPrompt,
+                config: {
+                    responseModalities: ['Text', 'Image'],
+                },
+            })
+        );
+
+        const responses = await Promise.all(generatePromises);
 
         const results: { base64: string; mimeType: string }[] = [];
-        if (response.candidates) {
-            for (const candidate of response.candidates) {
-                if (candidate.content?.parts) {
-                    for (const part of candidate.content.parts) {
-                        if (part.inlineData?.data && part.inlineData?.mimeType) {
-                            results.push({
-                                base64: part.inlineData.data,
-                                mimeType: part.inlineData.mimeType,
-                            });
+        for (const response of responses) {
+            if (response.candidates) {
+                for (const candidate of response.candidates) {
+                    if (candidate.content?.parts) {
+                        for (const part of candidate.content.parts) {
+                            if (part.inlineData?.data && part.inlineData?.mimeType) {
+                                results.push({
+                                    base64: part.inlineData.data,
+                                    mimeType: part.inlineData.mimeType,
+                                });
+                            }
                         }
                     }
                 }
