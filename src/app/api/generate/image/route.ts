@@ -17,6 +17,8 @@ export async function POST(req: NextRequest) {
             preprompt_id,
             actor_id,
             reference_image_url,
+            quality_suffix,
+            negative_prompt,
         } = body;
 
         if (!project_id || !prompt || !model) {
@@ -67,7 +69,7 @@ export async function POST(req: NextRequest) {
         // Generate images via Gemini
         let images: { base64: string; mimeType: string }[] = [];
         try {
-            images = await generateImages(finalPrompt, model, count, aspect_ratio, reference_image_url);
+            images = await generateImages(finalPrompt, model, count, aspect_ratio, reference_image_url, quality_suffix, negative_prompt);
         } catch (genError: unknown) {
             // Mark all as error
             await supabase

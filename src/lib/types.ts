@@ -164,6 +164,8 @@ export interface GenerateImageRequest {
     preprompt_id?: string;
     actor_id?: string;
     reference_image_url?: string;
+    quality_suffix?: string;
+    negative_prompt?: string;
 }
 
 export interface GenerateVideoRequest {

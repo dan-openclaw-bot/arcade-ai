@@ -13,7 +13,9 @@ export async function generateImages(
     model: string,
     count: number = 1,
     aspectRatio: string = '1:1',
-    referenceImageUrl?: string
+    referenceImageUrl?: string,
+    qualitySuffix?: string,
+    negativePrompt?: string,
 ): Promise<{ base64: string; mimeType: string }[]> {
     const aspectRatioMap: Record<string, string> = {
         '1:1': '1:1',
@@ -61,16 +63,13 @@ export async function generateImages(
         outputMimeType: 'image/jpeg',
     };
 
-    // Append high-quality modifiers to the raw user prompt like Arcade does behind the scenes
-    // We only add this if the prompt doesn't already seem to have its own complex style words
-    const qualitySuffix = prompt.length < 150 ? ', highly detailed, masterpiece, 8k resolution, cinematic lighting, professional photography, photorealistic' : '';
-
-    // Add negative prompt instructions directly into the text prompt since the API parameter isn't supported here
-    const negativeInstructions = ' (Do NOT include: blurry, low quality, low resolution, pixelated, deformed, bad anatomy, bad proportions, disfigured, ugly, out of focus, text, watermark, signature)';
+    // Use caller-provided quality suffix and negative prompt, or empty strings
+    const suffix = qualitySuffix ? `, ${qualitySuffix}` : '';
+    const negInstructions = negativePrompt ? ` (Do NOT include: ${negativePrompt})` : '';
 
     const finalPrompt = referenceImageUrl
-        ? `${prompt}${qualitySuffix}${negativeInstructions} [Style reference: ${referenceImageUrl}]`
-        : `${prompt}${qualitySuffix}${negativeInstructions}`;
+        ? `${prompt}${suffix}${negInstructions} [Style reference: ${referenceImageUrl}]`
+        : `${prompt}${suffix}${negInstructions}`;
 
     const actualCount = Math.min(count, 4);
     const generatePromises = Array.from({ length: actualCount }, () =>

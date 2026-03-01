@@ -22,6 +22,8 @@ function SettingsPopup({
     videoDuration, setVideoDuration,
     videoResolution, setVideoResolution,
     count,
+    qualitySuffix, setQualitySuffix,
+    negativePrompt, setNegativePrompt,
 }: {
     tab: Tab; onClose: () => void;
     imageModel: string; setImageModel: (v: string) => void;
@@ -31,6 +33,8 @@ function SettingsPopup({
     videoDuration: number; setVideoDuration: (v: number) => void;
     videoResolution: string; setVideoResolution: (v: string) => void;
     count: number;
+    qualitySuffix: string; setQualitySuffix: (v: string) => void;
+    negativePrompt: string; setNegativePrompt: (v: string) => void;
 }) {
     const imgModel = IMAGE_MODELS.find((m) => m.id === imageModel) || IMAGE_MODELS[1];
     const vidModel = VIDEO_MODELS.find((m) => m.id === videoModel) || VIDEO_MODELS[0];
@@ -62,8 +66,9 @@ function SettingsPopup({
                 border: '1px solid #e8e8e8',
                 borderRadius: 16,
                 boxShadow: '0 8px 40px rgba(0,0,0,0.13)',
-                width: 300,
-                overflow: 'hidden',
+                width: 320,
+                maxHeight: '70vh',
+                overflowY: 'auto',
                 zIndex: 50,
             }}
         >
@@ -108,6 +113,28 @@ function SettingsPopup({
                         <span className="text-xs text-gray-500">Estimated cost</span>
                         <span className="text-xs font-bold text-gray-900">{estimatedCost} for {count} image{count > 1 ? 's' : ''}</span>
                     </div>
+                    {/* Quality booster */}
+                    <div className="px-5 py-3" style={{ borderTop: '1px dashed #e8e8e8' }}>
+                        <label className="text-xs font-semibold text-gray-600 block mb-1">Quality booster</label>
+                        <textarea
+                            value={qualitySuffix}
+                            onChange={(e) => setQualitySuffix(e.target.value)}
+                            rows={2}
+                            className="w-full text-xs text-gray-800 bg-gray-50 rounded-lg p-2 border border-gray-200 outline-none resize-none focus:border-gray-400"
+                            placeholder="e.g. highly detailed, 8k resolution, cinematic lighting..."
+                        />
+                    </div>
+                    {/* Negative prompt */}
+                    <div className="px-5 py-3" style={{ borderTop: '1px solid #f2f2f2' }}>
+                        <label className="text-xs font-semibold text-gray-600 block mb-1">Negative prompt</label>
+                        <textarea
+                            value={negativePrompt}
+                            onChange={(e) => setNegativePrompt(e.target.value)}
+                            rows={2}
+                            className="w-full text-xs text-gray-800 bg-gray-50 rounded-lg p-2 border border-gray-200 outline-none resize-none focus:border-gray-400"
+                            placeholder="e.g. blurry, low quality, deformed, watermark..."
+                        />
+                    </div>
                 </>
             )}
 
@@ -142,6 +169,28 @@ function SettingsPopup({
                         <span className="text-xs text-gray-500">Estimated cost</span>
                         <span className="text-xs font-bold text-gray-900">{estimatedCost} for {videoDuration * count}s</span>
                     </div>
+                    {/* Quality booster */}
+                    <div className="px-5 py-3" style={{ borderTop: '1px dashed #e8e8e8' }}>
+                        <label className="text-xs font-semibold text-gray-600 block mb-1">Quality booster</label>
+                        <textarea
+                            value={qualitySuffix}
+                            onChange={(e) => setQualitySuffix(e.target.value)}
+                            rows={2}
+                            className="w-full text-xs text-gray-800 bg-gray-50 rounded-lg p-2 border border-gray-200 outline-none resize-none focus:border-gray-400"
+                            placeholder="e.g. highly detailed, cinematic lighting..."
+                        />
+                    </div>
+                    {/* Negative prompt */}
+                    <div className="px-5 py-3" style={{ borderTop: '1px solid #f2f2f2' }}>
+                        <label className="text-xs font-semibold text-gray-600 block mb-1">Negative prompt</label>
+                        <textarea
+                            value={negativePrompt}
+                            onChange={(e) => setNegativePrompt(e.target.value)}
+                            rows={2}
+                            className="w-full text-xs text-gray-800 bg-gray-50 rounded-lg p-2 border border-gray-200 outline-none resize-none focus:border-gray-400"
+                            placeholder="e.g. blurry, low quality, deformed, watermark..."
+                        />
+                    </div>
                 </>
             )}
         </div>
@@ -157,6 +206,9 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
     const [showSettings, setShowSettings] = useState(false);
     const [totalSpent, setTotalSpent] = useState(0);
 
+    const DEFAULT_QUALITY = 'highly detailed, masterpiece, 8k resolution, cinematic lighting, professional photography, photorealistic';
+    const DEFAULT_NEGATIVE = 'blurry, low quality, low resolution, pixelated, deformed, bad anatomy, bad proportions, disfigured, ugly, out of focus, text, watermark, signature';
+
     // Image settings
     const [imageModel, setImageModel] = useState(IMAGE_MODELS[1].id); // Nano Banana Pro
     const [imageAspect, setImageAspect] = useState<AspectRatio>('9:16');
@@ -167,16 +219,32 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
     const [videoDuration, setVideoDuration] = useState(12);
     const [videoResolution, setVideoResolution] = useState('1080p');
 
+    // Prompt enhancements (editable)
+    const [qualitySuffix, setQualitySuffix] = useState(DEFAULT_QUALITY);
+    const [negativePrompt, setNegativePrompt] = useState(DEFAULT_NEGATIVE);
+
     // Reference image — used for BOTH image (style reference) and video
     const [refImageFile, setRefImageFile] = useState<File | null>(null);
     const [refImagePreview, setRefImagePreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Load total spent from localStorage
+    // Load total spent + prompt settings from localStorage
     useEffect(() => {
         const saved = localStorage.getItem('arcade_total_spent');
         if (saved) setTotalSpent(parseFloat(saved));
+        const savedQuality = localStorage.getItem('arcade_quality_suffix');
+        if (savedQuality !== null) setQualitySuffix(savedQuality);
+        const savedNeg = localStorage.getItem('arcade_negative_prompt');
+        if (savedNeg !== null) setNegativePrompt(savedNeg);
     }, []);
+
+    // Save prompt settings on change
+    useEffect(() => {
+        localStorage.setItem('arcade_quality_suffix', qualitySuffix);
+    }, [qualitySuffix]);
+    useEffect(() => {
+        localStorage.setItem('arcade_negative_prompt', negativePrompt);
+    }, [negativePrompt]);
 
     function handleRefImageChange(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
@@ -218,6 +286,8 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                     aspect_ratio: imageAspect,
                     count,
                     reference_image_url: refImageUrl,
+                    quality_suffix: qualitySuffix || undefined,
+                    negative_prompt: negativePrompt || undefined,
                 };
                 const res = await fetch('/api/generate/image', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -285,6 +355,8 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                         videoDuration={videoDuration} setVideoDuration={setVideoDuration}
                         videoResolution={videoResolution} setVideoResolution={setVideoResolution}
                         count={count}
+                        qualitySuffix={qualitySuffix} setQualitySuffix={setQualitySuffix}
+                        negativePrompt={negativePrompt} setNegativePrompt={setNegativePrompt}
                     />
                 )}
 
