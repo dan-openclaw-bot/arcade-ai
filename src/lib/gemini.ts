@@ -28,6 +28,10 @@ export async function generateImages(
     if (model.startsWith('gemini-')) {
         // Build enhanced prompt with quality/negative modifiers
         let enhancedPrompt = prompt;
+        // Add aspect ratio guidance (generateContent has no native aspect ratio param)
+        if (aspectRatio === '1:1') enhancedPrompt = `[Square 1:1 format] ${enhancedPrompt}`;
+        else if (aspectRatio === '9:16') enhancedPrompt = `[Portrait 9:16 format] ${enhancedPrompt}`;
+        else if (aspectRatio === '16:9') enhancedPrompt = `[Landscape 16:9 format] ${enhancedPrompt}`;
         if (qualitySuffix) enhancedPrompt += `, ${qualitySuffix}`;
         if (negativePrompt) enhancedPrompt += ` (Do NOT include: ${negativePrompt})`;
         if (referenceImageUrl) enhancedPrompt += `\n\nReference image URL: ${referenceImageUrl}`;

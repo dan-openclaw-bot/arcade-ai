@@ -227,6 +227,15 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
     const [refImagePreview, setRefImagePreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // Preprompt & Actor selection
+    const [selectedPrepromptId, setSelectedPrepromptId] = useState<string | null>(null);
+    const [selectedActorId, setSelectedActorId] = useState<string | null>(null);
+    const [showPrepromptPicker, setShowPrepromptPicker] = useState(false);
+    const [showActorPicker, setShowActorPicker] = useState(false);
+
+    const selectedPreprompt = preprompts.find((p) => p.id === selectedPrepromptId);
+    const selectedActor = actors.find((a) => a.id === selectedActorId);
+
     // Load total spent + prompt settings from localStorage
     useEffect(() => {
         const saved = localStorage.getItem('arcade_total_spent');
@@ -279,6 +288,8 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
         const currentCount = count;
         const currentQualitySuffix = qualitySuffix;
         const currentNegativePrompt = negativePrompt;
+        const currentPrepromptId = selectedPrepromptId;
+        const currentActorId = selectedActorId;
 
         // Reset UI immediately so the user can queue more generations
         setPrompt('');
@@ -308,6 +319,8 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                         reference_image_url: refImageUrl,
                         quality_suffix: currentQualitySuffix || undefined,
                         negative_prompt: currentNegativePrompt || undefined,
+                        preprompt_id: currentPrepromptId || undefined,
+                        actor_id: currentActorId || undefined,
                     };
                     const res = await fetch('/api/generate/image', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -336,6 +349,8 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                         resolution: currentVideoResolution,
                         count: currentCount,
                         reference_image_url: refImageUrl,
+                        preprompt_id: currentPrepromptId || undefined,
+                        actor_id: currentActorId || undefined,
                     };
                     const res = await fetch('/api/generate/video', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -376,6 +391,81 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                     />
                 )}
 
+                {/* PREPROMPT PICKER DROPDOWN */}
+                {showPrepromptPicker && (
+                    <div
+                        className="animate-slide-up"
+                        style={{
+                            position: 'absolute',
+                            left: 0,
+                            bottom: 'calc(100% + 12px)',
+                            background: '#fff',
+                            border: '1px solid #e8e8e8',
+                            borderRadius: 12,
+                            boxShadow: '0 8px 40px rgba(0,0,0,0.13)',
+                            width: 260,
+                            maxHeight: 280,
+                            overflowY: 'auto',
+                            zIndex: 50,
+                        }}
+                    >
+                        <div className="px-4 py-3 font-semibold text-sm text-gray-900" style={{ borderBottom: '1px solid #f2f2f2' }}>
+                            Pré-prompts
+                        </div>
+                        {preprompts.length === 0 ? (
+                            <div className="px-4 py-3 text-xs text-gray-400">Aucun pré-prompt disponible</div>
+                        ) : (
+                            preprompts.map((p) => (
+                                <button
+                                    key={p.id}
+                                    onClick={() => { setSelectedPrepromptId(p.id); setShowPrepromptPicker(false); }}
+                                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-gray-50 ${selectedPrepromptId === p.id ? 'bg-violet-50 text-violet-700 font-medium' : 'text-gray-700'}`}
+                                >
+                                    {p.name}
+                                </button>
+                            ))
+                        )}
+                    </div>
+                )}
+
+                {/* ACTOR PICKER DROPDOWN */}
+                {showActorPicker && (
+                    <div
+                        className="animate-slide-up"
+                        style={{
+                            position: 'absolute',
+                            left: 50,
+                            bottom: 'calc(100% + 12px)',
+                            background: '#fff',
+                            border: '1px solid #e8e8e8',
+                            borderRadius: 12,
+                            boxShadow: '0 8px 40px rgba(0,0,0,0.13)',
+                            width: 260,
+                            maxHeight: 280,
+                            overflowY: 'auto',
+                            zIndex: 50,
+                        }}
+                    >
+                        <div className="px-4 py-3 font-semibold text-sm text-gray-900" style={{ borderBottom: '1px solid #f2f2f2' }}>
+                            Acteurs
+                        </div>
+                        {actors.length === 0 ? (
+                            <div className="px-4 py-3 text-xs text-gray-400">Aucun acteur disponible</div>
+                        ) : (
+                            actors.map((a) => (
+                                <button
+                                    key={a.id}
+                                    onClick={() => { setSelectedActorId(a.id); setShowActorPicker(false); }}
+                                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-gray-50 flex items-center gap-2.5 ${selectedActorId === a.id ? 'bg-violet-50 text-violet-700 font-medium' : 'text-gray-700'}`}
+                                >
+                                    <img src={a.image_url} alt={a.name} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                                    {a.name}
+                                </button>
+                            ))
+                        )}
+                    </div>
+                )}
+
                 {/* Total spent badge */}
                 {totalSpent > 0 && (
                     <div className="absolute -top-8 right-0 text-xs text-gray-400 flex items-center gap-1">
@@ -396,14 +486,14 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                     {/* Tabs */}
                     <div className="flex items-center gap-1 px-3 pt-3">
                         <button
-                            onClick={() => { setTab('video'); setShowSettings(false); }}
+                            onClick={() => { setTab('video'); setShowSettings(false); setShowPrepromptPicker(false); setShowActorPicker(false); }}
                             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${tab === 'video' ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'}`}
                         >
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="13" height="10" rx="2" /><path d="m22 7-5 3.5L22 14V7z" /></svg>
                             Video
                         </button>
                         <button
-                            onClick={() => { setTab('image'); setShowSettings(false); }}
+                            onClick={() => { setTab('image'); setShowSettings(false); setShowPrepromptPicker(false); setShowActorPicker(false); }}
                             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${tab === 'image' ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'}`}
                         >
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-6-6L5 21" /></svg>
@@ -431,17 +521,52 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                         />
                     </div>
 
-                    {/* Reference image preview strip */}
-                    {refImagePreview && (
-                        <div className="flex items-center gap-2 px-4 pb-2">
-                            <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-gray-200">
-                                <img src={refImagePreview} alt="ref" className="w-full h-full object-cover" />
-                                <button
-                                    onClick={() => { setRefImageFile(null); setRefImagePreview(null); }}
-                                    className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity text-white text-xs"
-                                >✕</button>
-                            </div>
-                            <span className="text-xs text-gray-400">Reference image</span>
+                    {/* Chips strip — reference image, preprompt, actor */}
+                    {(refImagePreview || selectedPreprompt || selectedActor) && (
+                        <div className="flex items-center gap-2 px-4 pb-2 flex-wrap">
+                            {/* Reference image chip */}
+                            {refImagePreview && (
+                                <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1">
+                                    <div className="relative w-7 h-7 rounded overflow-hidden shrink-0">
+                                        <img src={refImagePreview} alt="ref" className="w-full h-full object-cover" />
+                                    </div>
+                                    <span className="text-xs text-gray-500">Ref image</span>
+                                    <button
+                                        onClick={() => { setRefImageFile(null); setRefImagePreview(null); }}
+                                        className="text-gray-400 hover:text-gray-700 ml-0.5"
+                                    >
+                                        <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                                    </button>
+                                </div>
+                            )}
+                            {/* Preprompt chip */}
+                            {selectedPreprompt && (
+                                <div className="flex items-center gap-1.5 bg-violet-50 border border-violet-200 rounded-lg px-2.5 py-1">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-violet-500 shrink-0">
+                                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" />
+                                    </svg>
+                                    <span className="text-xs text-violet-700 font-medium">{selectedPreprompt.name}</span>
+                                    <button
+                                        onClick={() => setSelectedPrepromptId(null)}
+                                        className="text-violet-400 hover:text-violet-700 ml-0.5"
+                                    >
+                                        <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                                    </button>
+                                </div>
+                            )}
+                            {/* Actor chip */}
+                            {selectedActor && (
+                                <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1">
+                                    <img src={selectedActor.image_url} alt={selectedActor.name} className="w-5 h-5 rounded-full object-cover shrink-0" />
+                                    <span className="text-xs text-blue-700 font-medium">{selectedActor.name}</span>
+                                    <button
+                                        onClick={() => setSelectedActorId(null)}
+                                        className="text-blue-400 hover:text-blue-700 ml-0.5"
+                                    >
+                                        <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -458,7 +583,7 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                         {/* Reference image button */}
                         <button
                             title={tab === 'image' ? 'Style reference image' : 'Video reference image'}
-                            onClick={() => fileInputRef.current?.click()}
+                            onClick={() => { fileInputRef.current?.click(); setShowPrepromptPicker(false); setShowActorPicker(false); }}
                             className={`relative p-2 rounded-lg transition-colors ${refImageFile ? 'text-gray-900 bg-gray-100' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
                         >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -477,6 +602,38 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                             className="hidden"
                             onChange={handleRefImageChange}
                         />
+
+                        {/* Preprompt button */}
+                        <button
+                            title="Ajouter un pré-prompt"
+                            onClick={() => { setShowPrepromptPicker((s) => !s); setShowActorPicker(false); setShowSettings(false); }}
+                            className={`relative p-2 rounded-lg transition-colors ${selectedPrepromptId ? 'text-violet-700 bg-violet-50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                                <line x1="16" y1="13" x2="8" y2="13" />
+                                <line x1="16" y1="17" x2="8" y2="17" />
+                            </svg>
+                            {selectedPrepromptId && (
+                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-violet-600 rounded-full border-2 border-white" />
+                            )}
+                        </button>
+
+                        {/* Actor button */}
+                        <button
+                            title="Ajouter un acteur"
+                            onClick={() => { setShowActorPicker((s) => !s); setShowPrepromptPicker(false); setShowSettings(false); }}
+                            className={`relative p-2 rounded-lg transition-colors ${selectedActorId ? 'text-blue-700 bg-blue-50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                                <circle cx="12" cy="7" r="4" />
+                            </svg>
+                            {selectedActorId && (
+                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 rounded-full border-2 border-white" />
+                            )}
+                        </button>
 
                         {/* Char count */}
                         <span className="text-xs text-gray-400">
@@ -500,7 +657,7 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
 
                         {/* Settings toggle */}
                         <button
-                            onClick={() => setShowSettings((s) => !s)}
+                            onClick={() => { setShowSettings((s) => !s); setShowPrepromptPicker(false); setShowActorPicker(false); }}
                             className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-gray-100 text-gray-900' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
                             title="Settings"
                         >

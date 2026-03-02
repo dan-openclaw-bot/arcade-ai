@@ -67,13 +67,13 @@ export default function ActorsPage() {
     }
 
     return (
-        <div className="flex h-screen bg-[#0e0e0e] overflow-hidden">
+        <div className="flex h-screen bg-[#f0f0f0] overflow-hidden">
             <Sidebar />
 
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 {/* Top bar */}
-                <div className="flex items-center px-6 py-4 border-b border-white/5">
-                    <h1 className="text-white font-semibold text-base flex-1">Acteurs</h1>
+                <div className="flex items-center px-6 py-4 border-b border-gray-200 bg-white">
+                    <h1 className="text-gray-900 font-semibold text-base flex-1">Acteurs</h1>
                     <button
                         onClick={() => setShowModal(true)}
                         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition-colors"
@@ -88,13 +88,13 @@ export default function ActorsPage() {
                     {loading ? (
                         <div className="grid grid-cols-4 gap-4">
                             {[...Array(8)].map((_, i) => (
-                                <div key={i} className="aspect-square rounded-xl shimmer" />
+                                <div key={i} className="aspect-square rounded-xl bg-gray-200 animate-pulse" />
                             ))}
                         </div>
                     ) : actors.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-center">
                             <div className="text-6xl mb-4">👤</div>
-                            <p className="text-white font-semibold mb-2">Aucun acteur</p>
+                            <p className="text-gray-900 font-semibold mb-2">Aucun acteur</p>
                             <p className="text-gray-500 text-sm">
                                 Créez des acteurs pour les réutiliser dans vos générations.
                             </p>
@@ -103,7 +103,7 @@ export default function ActorsPage() {
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                             {actors.map((actor) => (
                                 <div key={actor.id} className="group relative">
-                                    <div className="aspect-square rounded-2xl overflow-hidden bg-[#1a1a1a]">
+                                    <div className="aspect-square rounded-2xl overflow-hidden bg-white shadow-sm">
                                         {actor.image_url ? (
                                             <img
                                                 src={actor.image_url}
@@ -112,7 +112,7 @@ export default function ActorsPage() {
                                             />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center">
-                                                <User className="w-12 h-12 text-gray-600" />
+                                                <User className="w-12 h-12 text-gray-300" />
                                             </div>
                                         )}
                                         <div className="card-overlay absolute inset-0 bg-black/60 flex items-end p-3">
@@ -125,7 +125,7 @@ export default function ActorsPage() {
                                         </div>
                                     </div>
                                     <div className="mt-2">
-                                        <p className="text-white text-sm font-medium truncate">{actor.name}</p>
+                                        <p className="text-gray-900 text-sm font-medium truncate">{actor.name}</p>
                                         {actor.description && (
                                             <p className="text-gray-500 text-xs truncate">{actor.description}</p>
                                         )}
@@ -140,16 +140,16 @@ export default function ActorsPage() {
             {/* Create modal */}
             {showModal && (
                 <div
-                    className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+                    className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
                     onClick={() => setShowModal(false)}
                 >
                     <div
-                        className="bg-[#161616] border border-white/10 rounded-2xl p-6 w-full max-w-sm animate-slide-up"
+                        className="bg-white border border-gray-200 rounded-2xl p-6 w-full max-w-sm animate-slide-up shadow-xl"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="flex items-center justify-between mb-5">
-                            <h2 className="text-white font-semibold">Nouvel acteur</h2>
-                            <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-white">
+                            <h2 className="text-gray-900 font-semibold">Nouvel acteur</h2>
+                            <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-700">
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
@@ -157,12 +157,12 @@ export default function ActorsPage() {
                         {/* Image upload */}
                         <div
                             onClick={() => fileRef.current?.click()}
-                            className="w-full aspect-square rounded-xl bg-[#1a1a1a] border-2 border-dashed border-white/10 hover:border-white/30 flex flex-col items-center justify-center cursor-pointer transition-colors mb-4 overflow-hidden"
+                            className="w-full aspect-square rounded-xl bg-gray-50 border-2 border-dashed border-gray-200 hover:border-gray-400 flex flex-col items-center justify-center cursor-pointer transition-colors mb-4 overflow-hidden"
                         >
                             {imagePreview ? (
                                 <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                             ) : (
-                                <div className="flex flex-col items-center gap-2 text-gray-500">
+                                <div className="flex flex-col items-center gap-2 text-gray-400">
                                     <Upload className="w-8 h-8" />
                                     <p className="text-sm">Cliquer pour uploader</p>
                                 </div>
@@ -174,14 +174,14 @@ export default function ActorsPage() {
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             placeholder="Nom de l'acteur"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 outline-none focus:border-violet-500 mb-3"
+                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-gray-900 text-sm placeholder-gray-400 outline-none focus:border-violet-500 mb-3"
                         />
                         <textarea
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
                             placeholder="Description (optionnel)"
                             rows={2}
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 outline-none focus:border-violet-500 mb-4 resize-none"
+                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-gray-900 text-sm placeholder-gray-400 outline-none focus:border-violet-500 mb-4 resize-none"
                         />
 
                         <button

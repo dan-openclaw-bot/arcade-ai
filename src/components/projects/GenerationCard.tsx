@@ -39,7 +39,7 @@ export default function GenerationCard({ generation, onClick, onDeleted }: Gener
         URL.revokeObjectURL(url);
     }
 
-    const aspectClass = generation.aspect_ratio === '9:16' ? 'aspect-[9/16]' : generation.aspect_ratio === '16:9' ? 'aspect-video' : 'aspect-square';
+    const aspectClass = 'aspect-square';
 
     return (
         <div
