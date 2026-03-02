@@ -34,13 +34,32 @@ export async function generateImages(
         else if (aspectRatio === '16:9') enhancedPrompt = `[Landscape 16:9 format] ${enhancedPrompt}`;
         if (qualitySuffix) enhancedPrompt += `, ${qualitySuffix}`;
         if (negativePrompt) enhancedPrompt += ` (Do NOT include: ${negativePrompt})`;
-        if (referenceImageUrl) enhancedPrompt += `\n\nReference image URL: ${referenceImageUrl}`;
+
+        // Build multimodal contents: text + optional reference image
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let contents: any;
+        if (referenceImageUrl) {
+            // Download the reference image and convert to base64
+            const imgResponse = await fetch(referenceImageUrl);
+            const imgBuffer = Buffer.from(await imgResponse.arrayBuffer());
+            const imgBase64 = imgBuffer.toString('base64');
+            const contentType = imgResponse.headers.get('content-type') || 'image/jpeg';
+
+            enhancedPrompt += '\n\nUse the provided reference image as a style guide for the generated image.';
+
+            contents = [
+                { inlineData: { data: imgBase64, mimeType: contentType } },
+                { text: enhancedPrompt },
+            ];
+        } else {
+            contents = enhancedPrompt;
+        }
 
         const actualCount = Math.min(count, 4);
         const generatePromises = Array.from({ length: actualCount }, () =>
             genai.models.generateContent({
                 model,
-                contents: enhancedPrompt,
+                contents,
                 config: {
                     responseModalities: ['Text', 'Image'],
                 },
@@ -80,10 +99,26 @@ export async function generateImages(
     // Use caller-provided quality suffix and negative prompt, or empty strings
     const suffix = qualitySuffix ? `, ${qualitySuffix}` : '';
     const negInstructions = negativePrompt ? ` (Do NOT include: ${negativePrompt})` : '';
+    const finalPrompt = `${prompt}${suffix}${negInstructions}`;
 
-    const finalPrompt = referenceImageUrl
-        ? `${prompt}${suffix}${negInstructions} [Style reference: ${referenceImageUrl}]`
-        : `${prompt}${suffix}${negInstructions}`;
+    // If reference image provided, download and add to config
+    if (referenceImageUrl) {
+        try {
+            const imgResponse = await fetch(referenceImageUrl);
+            const imgBuffer = Buffer.from(await imgResponse.arrayBuffer());
+            const imgBase64 = imgBuffer.toString('base64');
+            config.referenceImages = [
+                {
+                    referenceType: 2, // STYLE_REFERENCE
+                    referenceImage: {
+                        imageBytes: imgBase64,
+                    },
+                },
+            ];
+        } catch (e) {
+            console.error('Failed to download reference image for Imagen:', e);
+        }
+    }
 
     const actualCount = Math.min(count, 4);
     const generatePromises = Array.from({ length: actualCount }, () =>
