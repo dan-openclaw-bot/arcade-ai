@@ -64,12 +64,16 @@ export default function GenerationCard({ generation, onClick, onDeleted, isSelec
             onClick={onClick}
         >
             {isGenerating && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ background: '#3a3a3a' }}>
-                    <div className="relative w-8 h-8">
-                        <div className="absolute inset-0 rounded-full border-2 border-gray-600" />
-                        <div className="absolute inset-0 rounded-full border-2 border-gray-300 border-t-transparent animate-spin" />
+                <div className="absolute inset-0 rounded-xl overflow-hidden" style={{ background: '#e8e8e8' }}>
+                    {/* Shimmer sweep */}
+                    <div className="absolute inset-0 shimmer" />
+                    {/* Centered subtle indicator */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                        <div className="w-5 h-5 rounded-full border-2 border-gray-300 border-t-transparent animate-spin" style={{ opacity: 0.5 }} />
+                        <p className="text-xs text-gray-400 font-medium" style={{ opacity: 0.7 }}>
+                            {generation.status === 'pending' ? 'En attente...' : 'Génération...'}
+                        </p>
                     </div>
-                    <p className="text-xs text-gray-400">{generation.status === 'pending' ? 'Waiting...' : 'Generating...'}</p>
                 </div>
             )}
 

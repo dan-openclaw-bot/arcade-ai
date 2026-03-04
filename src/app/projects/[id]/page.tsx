@@ -143,7 +143,7 @@ export default function ProjectPage() {
                 {/* Top bar — white, like Arcade */}
                 <div
                     className="flex items-center gap-3 px-5 py-3 shrink-0"
-                    style={{ background: '#F9FAFB', borderBottom: '1px solid #e5e7eb' }}
+                    style={{ background: '#F9FAFB' }}
                 >
                     <h1 className="text-gray-900 font-semibold text-sm flex-1 truncate">
                         {project?.name || ''}
@@ -165,9 +165,9 @@ export default function ProjectPage() {
                     </div>
                 </div>
 
-                {/* Main grid area — light gray like Arcade */}
+                {/* Main grid area + floating prompt bar */}
                 <div
-                    className="flex-1 overflow-y-auto"
+                    className="flex-1 overflow-y-auto relative"
                     style={{ background: '#F9FAFB' }}
                 >
                     {loading ? (
@@ -175,78 +175,82 @@ export default function ProjectPage() {
                             <div className="w-7 h-7 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
                         </div>
                     ) : (
-                        <GenerationsGrid
-                            generations={generations}
-                            onCardClick={setExpandedGen}
-                            onDeleted={handleDeleted}
-                            selectedIds={selectedIds}
-                            onToggleSelect={handleToggleSelect}
-                            onEdit={handleEdit}
-                        />
-                    )}
-                </div>
-
-                {/* Bottom area: Selection bar OR Prompt bar */}
-                <div style={{ background: 'transparent' }}>
-                    {hasSelection ? (
-                        /* Selection action bar */
-                        <div className="flex justify-center px-6 pb-6">
-                            <div className="selection-bar w-full max-w-2xl flex items-center gap-3 px-5 py-3.5">
-                                {/* Count */}
-                                <span className="text-sm font-semibold text-gray-900">
-                                    {selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}
-                                </span>
-
-                                {/* Select all */}
-                                <button
-                                    onClick={handleSelectAll}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition-colors"
-                                >
-                                    <CheckSquare className="w-3.5 h-3.5" />
-                                    {selectedIds.size === generations.filter((g) => g.status === 'done').length ? 'Tout désélectionner' : 'Tout sélectionner'}
-                                </button>
-
-                                <div className="flex-1" />
-
-                                {/* Download selected */}
-                                <button
-                                    onClick={handleDownloadSelected}
-                                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
-                                >
-                                    <Download className="w-4 h-4" />
-                                    Télécharger
-                                </button>
-
-                                {/* Delete selected */}
-                                <button
-                                    onClick={handleDeleteSelected}
-                                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                    Supprimer
-                                </button>
-
-                                {/* Cancel */}
-                                <button
-                                    onClick={() => setSelectedIds(new Set())}
-                                    className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-                                    title="Annuler la sélection"
-                                >
-                                    <X className="w-4 h-4" />
-                                </button>
-                            </div>
+                        <div style={{ paddingBottom: 120 }}>
+                            <GenerationsGrid
+                                generations={generations}
+                                onCardClick={setExpandedGen}
+                                onDeleted={handleDeleted}
+                                selectedIds={selectedIds}
+                                onToggleSelect={handleToggleSelect}
+                                onEdit={handleEdit}
+                            />
                         </div>
-                    ) : (
-                        /* Normal prompt bar */
-                        <PromptBar
-                            projectId={id}
-                            preprompts={preprompts}
-                            actors={actors}
-                            onGenerationStarted={handleGenerationStarted}
-                            editReferenceUrl={editRefUrl}
-                            onEditReferenceHandled={() => setEditRefUrl(null)}
-                        />
                     )}
+
+                    {/* Floating bottom bar — overlays on top of grid */}
+                    <div style={{ position: 'sticky', bottom: 0, left: 0, right: 0, pointerEvents: 'none', zIndex: 20 }}>
+                        <div style={{ pointerEvents: 'auto' }}>
+                            {hasSelection ? (
+                                /* Selection action bar */
+                                <div className="flex justify-center px-6 pb-6">
+                                    <div className="selection-bar w-full max-w-2xl flex items-center gap-3 px-5 py-3.5">
+                                        {/* Count */}
+                                        <span className="text-sm font-semibold text-gray-900">
+                                            {selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}
+                                        </span>
+
+                                        {/* Select all */}
+                                        <button
+                                            onClick={handleSelectAll}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition-colors"
+                                        >
+                                            <CheckSquare className="w-3.5 h-3.5" />
+                                            {selectedIds.size === generations.filter((g) => g.status === 'done').length ? 'Tout désélectionner' : 'Tout sélectionner'}
+                                        </button>
+
+                                        <div className="flex-1" />
+
+                                        {/* Download selected */}
+                                        <button
+                                            onClick={handleDownloadSelected}
+                                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+                                        >
+                                            <Download className="w-4 h-4" />
+                                            Télécharger
+                                        </button>
+
+                                        {/* Delete selected */}
+                                        <button
+                                            onClick={handleDeleteSelected}
+                                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                            Supprimer
+                                        </button>
+
+                                        {/* Cancel */}
+                                        <button
+                                            onClick={() => setSelectedIds(new Set())}
+                                            className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                                            title="Annuler la sélection"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                /* Normal prompt bar */
+                                <PromptBar
+                                    projectId={id}
+                                    preprompts={preprompts}
+                                    actors={actors}
+                                    onGenerationStarted={handleGenerationStarted}
+                                    editReferenceUrl={editRefUrl}
+                                    onEditReferenceHandled={() => setEditRefUrl(null)}
+                                />
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
 
