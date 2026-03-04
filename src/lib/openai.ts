@@ -1,8 +1,12 @@
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY!,
-});
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+    if (!_openai) {
+        _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+    }
+    return _openai;
+}
 
 /**
  * Generate a video using Sora 2 models
@@ -50,7 +54,7 @@ export async function generateSoraVideo(
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await (openai as any).videos.create(params);
+    const response = await (getOpenAI() as any).videos.create(params);
 
     return { videoId: response.id };
 }
@@ -62,13 +66,13 @@ export async function pollSoraVideo(
     videoId: string,
 ): Promise<{ done: boolean; videoBase64?: string; status?: string }> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const video = await (openai as any).videos.retrieve(videoId);
+    const video = await (getOpenAI() as any).videos.retrieve(videoId);
 
     if (video.status === 'completed') {
         // Download the video
         try {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const downloadResponse = await (openai as any).videos.download(videoId);
+            const downloadResponse = await (getOpenAI() as any).videos.download(videoId);
             // The response contains the video data
             if (downloadResponse.url) {
                 const videoResponse = await fetch(downloadResponse.url);
