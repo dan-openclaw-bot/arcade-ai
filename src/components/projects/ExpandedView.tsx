@@ -1,7 +1,7 @@
 'use client';
 
 import { Generation } from '@/lib/types';
-import { X, Download, Copy, Check, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { X, Download, Copy, Check, ChevronLeft, ChevronRight, Trash2, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { IMAGE_MODELS, VIDEO_MODELS } from '@/lib/types';
 
@@ -11,9 +11,10 @@ interface ExpandedViewProps {
     onClose: () => void;
     onNavigate: (gen: Generation) => void;
     onDeleted: (id: string) => void;
+    onEdit?: (imageUrl: string) => void;
 }
 
-export default function ExpandedView({ generation, allGenerations, onClose, onNavigate, onDeleted }: ExpandedViewProps) {
+export default function ExpandedView({ generation, allGenerations, onClose, onNavigate, onDeleted, onEdit }: ExpandedViewProps) {
     const [copied, setCopied] = useState(false);
 
     const currentIndex = allGenerations.findIndex((g) => g.id === generation.id);
@@ -117,6 +118,15 @@ export default function ExpandedView({ generation, allGenerations, onClose, onNa
                         >
                             <Trash2 className="w-4 h-4" />
                         </button>
+                        {generation.type === 'image' && generation.output_url && onEdit && (
+                            <button
+                                onClick={() => { onEdit(generation.output_url!); onClose(); }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-colors"
+                            >
+                                <Pencil className="w-3.5 h-3.5" />
+                                Edit
+                            </button>
+                        )}
                     </div>
                     <button onClick={onClose} className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 text-xs transition-colors">
                         ✕

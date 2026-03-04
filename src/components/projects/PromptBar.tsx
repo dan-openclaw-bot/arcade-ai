@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { IMAGE_MODELS, VIDEO_MODELS, AspectRatio, GenerateImageRequest, GenerateVideoRequest } from '@/lib/types';
 
 type Tab = 'video' | 'image';
@@ -10,6 +10,8 @@ interface PromptBarProps {
     preprompts: { id: string; name: string }[];
     actors: { id: string; name: string; image_url: string }[];
     onGenerationStarted: () => void;
+    editReferenceUrl?: string | null;
+    onEditReferenceHandled?: () => void;
 }
 
 // Settings popup to the RIGHT of the bar
@@ -149,7 +151,7 @@ function SettingsPopup({
     );
 }
 
-export default function PromptBar({ projectId, preprompts, actors, onGenerationStarted }: PromptBarProps) {
+export default function PromptBar({ projectId, preprompts, actors, onGenerationStarted, editReferenceUrl, onEditReferenceHandled }: PromptBarProps) {
     const [tab, setTab] = useState<Tab>('image');
     const [prompt, setPrompt] = useState('');
     const [count, setCount] = useState(1);
@@ -191,8 +193,15 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
         if (saved) setTotalSpent(parseFloat(saved));
     }, []);
 
-
-
+    // Handle edit reference URL (from ExpandedView "Edit" button)
+    useEffect(() => {
+        if (!editReferenceUrl) return;
+        // Set the URL as reference image preview directly (no File needed for URL-based refs)
+        setRefImagePreview(editReferenceUrl);
+        setRefImageFile(null); // Will use URL directly instead of file upload
+        setTab('image');
+        onEditReferenceHandled?.();
+    }, [editReferenceUrl, onEditReferenceHandled]);
     function handleRefImageChange(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -217,6 +226,7 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
         // Capture current values before resetting
         const currentPrompt = prompt.trim();
         const currentRefImageFile = refImageFile;
+        const currentRefImagePreview = refImagePreview; // URL from Edit button or file preview
         const currentTab = tab;
         const currentImageModel = imageModel;
         const currentImageAspect = imageAspect;
@@ -235,7 +245,7 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
         (async () => {
             try {
                 if (currentTab === 'image') {
-                    // Upload ref image if provided
+                    // Upload ref image if provided, or use existing URL (from Edit)
                     let refImageUrl: string | undefined;
                     if (currentRefImageFile) {
                         const fd = new FormData();
@@ -243,6 +253,9 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                         fd.append('bucket', 'generations');
                         const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
                         if (upRes.ok) { const { url } = await upRes.json(); refImageUrl = url; }
+                    } else if (currentRefImagePreview && currentRefImagePreview.startsWith('http')) {
+                        // Already a URL (from Edit button)
+                        refImageUrl = currentRefImagePreview;
                     }
 
                     const body: GenerateImageRequest = {
@@ -274,6 +287,8 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                         fd.append('bucket', 'generations');
                         const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
                         if (upRes.ok) { const { url } = await upRes.json(); refImageUrl = url; }
+                    } else if (currentRefImagePreview && currentRefImagePreview.startsWith('http')) {
+                        refImageUrl = currentRefImagePreview;
                     }
                     const body: GenerateVideoRequest = {
                         project_id: projectId,

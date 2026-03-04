@@ -16,6 +16,7 @@ export default function ProjectPage() {
     const [actors, setActors] = useState<Actor[]>([]);
     const [loading, setLoading] = useState(true);
     const [expandedGen, setExpandedGen] = useState<Generation | null>(null);
+    const [editRefUrl, setEditRefUrl] = useState<string | null>(null);
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const loadGenerations = useCallback(async () => {
@@ -73,6 +74,10 @@ export default function ProjectPage() {
         if (expandedGen?.id === deletedId) setExpandedGen(null);
     }
 
+    function handleEdit(imageUrl: string) {
+        setEditRefUrl(imageUrl);
+    }
+
     return (
         <div className="flex h-screen overflow-hidden" style={{ background: '#f0f0f0' }}>
             <Sidebar />
@@ -128,6 +133,8 @@ export default function ProjectPage() {
                         preprompts={preprompts}
                         actors={actors}
                         onGenerationStarted={handleGenerationStarted}
+                        editReferenceUrl={editRefUrl}
+                        onEditReferenceHandled={() => setEditRefUrl(null)}
                     />
                 </div>
             </div>
@@ -139,6 +146,7 @@ export default function ProjectPage() {
                     onClose={() => setExpandedGen(null)}
                     onNavigate={setExpandedGen}
                     onDeleted={handleDeleted}
+                    onEdit={handleEdit}
                 />
             )}
         </div>
