@@ -161,7 +161,7 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
 
     // Image settings
     const [imageModel, setImageModel] = useState(IMAGE_MODELS[1].id); // Nano Banana Pro
-    const [imageAspect, setImageAspect] = useState<AspectRatio>('9:16');
+    const [imageAspect, setImageAspect] = useState<AspectRatio>('1:1');
 
     // Video settings
     const [videoModel, setVideoModel] = useState(VIDEO_MODELS[0].id); // Veo 2

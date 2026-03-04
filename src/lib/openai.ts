@@ -19,18 +19,18 @@ export async function generateSoraVideo(
     durationSeconds: number = 10,
     referenceImageBase64?: string,
 ): Promise<{ videoId: string }> {
-    // Map aspect ratio to Sora resolution
-    // sora-2-pro at 720p tier ($0.30/s): 720x1280 or 1280x720
-    // sora-2 at 720p tier ($0.10/s): 720x1280 or 1280x720
+    // Map aspect ratio to Sora resolution (using LOWEST available)
+    // sora-2: 720x1280 / 1280x720 only (no 1:1 support, use smallest square)
+    // sora-2-pro: 720x1280 / 1024x1792 / 1280x720 / 1792x1024 / 480x480 / 720x720 / 1080x1080
     let width: number;
     let height: number;
     if (aspectRatio === '16:9') {
-        width = 1280; height = 720;
+        width = 1280; height = 720; // lowest landscape for both models
     } else if (aspectRatio === '9:16') {
-        width = 720; height = 1280;
+        width = 720; height = 1280; // lowest portrait for both models
     } else {
-        // 1:1
-        width = 1080; height = 1080;
+        // 1:1 — use 480x480 (lowest square, sora-2-pro supports it)
+        width = 480; height = 480;
     }
 
     // Build request params
