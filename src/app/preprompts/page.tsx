@@ -76,11 +76,11 @@ export default function PrepromptsPage() {
     }
 
     return (
-        <div className="flex h-screen bg-[#f0f0f0] overflow-hidden">
+        <div className="flex h-screen overflow-hidden" style={{ background: '#F9FAFB' }}>
             <Sidebar />
 
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                <div className="flex items-center px-6 py-4 border-b border-gray-200 bg-white">
+                <div className="flex items-center px-6 py-4 border-b border-gray-200" style={{ background: '#F9FAFB' }}>
                     <h1 className="text-gray-900 font-semibold text-base flex-1">Pré-prompts</h1>
                     <button
                         onClick={openCreate}
@@ -91,7 +91,7 @@ export default function PrepromptsPage() {
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6">
+                <div className="flex-1 overflow-y-auto p-6" style={{ background: '#F9FAFB' }}>
                     {loading ? (
                         <div className="space-y-3">
                             {[...Array(4)].map((_, i) => (
