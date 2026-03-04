@@ -136,14 +136,14 @@ export default function ProjectPage() {
     const hasSelection = selectedIds.size > 0;
 
     return (
-        <div className="flex h-screen overflow-hidden" style={{ background: '#f0f0f0' }}>
+        <div className="flex h-screen overflow-hidden" style={{ background: '#F9FAFB' }}>
             <Sidebar />
 
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 {/* Top bar — white, like Arcade */}
                 <div
                     className="flex items-center gap-3 px-5 py-3 shrink-0"
-                    style={{ background: '#fff', borderBottom: '1px solid #e5e7eb' }}
+                    style={{ background: '#F9FAFB', borderBottom: '1px solid #e5e7eb' }}
                 >
                     <h1 className="text-gray-900 font-semibold text-sm flex-1 truncate">
                         {project?.name || ''}
@@ -168,7 +168,7 @@ export default function ProjectPage() {
                 {/* Main grid area — light gray like Arcade */}
                 <div
                     className="flex-1 overflow-y-auto"
-                    style={{ background: '#ebebeb' }}
+                    style={{ background: '#F9FAFB' }}
                 >
                     {loading ? (
                         <div className="flex items-center justify-center h-full">
@@ -187,7 +187,7 @@ export default function ProjectPage() {
                 </div>
 
                 {/* Bottom area: Selection bar OR Prompt bar */}
-                <div style={{ background: '#ebebeb' }}>
+                <div style={{ background: 'transparent' }}>
                     {hasSelection ? (
                         /* Selection action bar */
                         <div className="flex justify-center px-6 pb-6">

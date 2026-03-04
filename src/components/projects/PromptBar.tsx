@@ -169,9 +169,7 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
     const [videoDuration, setVideoDuration] = useState(12);
     const [videoResolution, setVideoResolution] = useState('1080p');
 
-    // Default quality/negative (sent automatically, not user-editable anymore)
-    const DEFAULT_QUALITY = 'highly detailed, masterpiece, 8k resolution, cinematic lighting, professional photography, photorealistic';
-    const DEFAULT_NEGATIVE = 'blurry, low quality, low resolution, pixelated, deformed, bad anatomy, bad proportions, disfigured, ugly, out of focus, text, watermark, signature';
+
 
     // Reference image — used for BOTH image (style reference) and video
     const [refImageFile, setRefImageFile] = useState<File | null>(null);
@@ -265,8 +263,7 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                         aspect_ratio: currentImageAspect,
                         count: currentCount,
                         reference_image_url: refImageUrl,
-                        quality_suffix: DEFAULT_QUALITY || undefined,
-                        negative_prompt: DEFAULT_NEGATIVE || undefined,
+
                         preprompt_id: selectedPrepromptId || undefined,
                         actor_id: selectedActorId || undefined,
                     };
