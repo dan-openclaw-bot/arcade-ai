@@ -9,11 +9,12 @@ import {
     Folder,
     ChevronDown,
     ChevronRight,
+    ChevronLeft,
     Users,
     FileText,
     Edit2,
     Trash2,
-    MoreHorizontal,
+    Menu,
 } from 'lucide-react';
 import { Project, Folder as FolderType } from '@/lib/types';
 
@@ -26,7 +27,7 @@ export default function Sidebar() {
     const [loading, setLoading] = useState(true);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editName, setEditName] = useState('');
-    const [hoverProject, setHoverProject] = useState<string | null>(null);
+    const [collapsed, setCollapsed] = useState(false);
 
     useEffect(() => { loadData(); }, []);
 
@@ -89,139 +90,148 @@ export default function Sidebar() {
 
     return (
         <div
-            className="flex flex-col h-full bg-white select-none"
+            className="flex flex-col h-full bg-white select-none sidebar-transition"
             style={{
-                width: 220,
-                minWidth: 220,
+                width: collapsed ? 56 : 220,
+                minWidth: collapsed ? 56 : 220,
                 borderRight: '1px solid #e5e7eb',
+                overflow: 'hidden',
             }}
         >
-            {/* App name + layout toggle */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                <div className="flex items-center gap-2">
-                    <span className="font-semibold text-gray-900 text-sm truncate">Aide Senior Arcade</span>
-                    <ChevronDown className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                </div>
-                <button className="p-1 rounded hover:bg-gray-100 text-gray-400">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <rect x="1" y="1" width="6" height="6" rx="1" fill="currentColor" opacity="0.4" />
-                        <rect x="9" y="1" width="6" height="6" rx="1" fill="currentColor" opacity="0.4" />
-                        <rect x="1" y="9" width="6" height="6" rx="1" fill="currentColor" opacity="0.4" />
-                        <rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor" opacity="0.4" />
-                    </svg>
+            {/* Header with collapse toggle */}
+            <div className="flex items-center justify-between px-3 py-3 border-b border-gray-100" style={{ minHeight: 49 }}>
+                {!collapsed && (
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className="font-semibold text-gray-900 text-sm truncate">Aide Senior Arcade</span>
+                    </div>
+                )}
+                <button
+                    onClick={() => setCollapsed((c) => !c)}
+                    className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+                    title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                >
+                    {collapsed ? <Menu className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
                 </button>
             </div>
 
             {/* New project */}
-            <div className="px-3 py-2">
+            <div className={collapsed ? 'px-1.5 py-2' : 'px-3 py-2'}>
                 <button
                     onClick={() => createProject()}
-                    className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors px-1 py-1 w-full"
+                    className={`flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors py-1 w-full ${collapsed ? 'justify-center px-0' : 'px-1'}`}
+                    title="New project"
                 >
-                    <Plus className="w-3.5 h-3.5" />
-                    New project
+                    <Plus className="w-3.5 h-3.5 shrink-0" />
+                    {!collapsed && 'New project'}
                 </button>
             </div>
 
-            {/* Scroll */}
-            <div className="flex-1 overflow-y-auto px-2 pb-4">
-                {loading ? (
-                    <div className="space-y-1">
-                        {[...Array(5)].map((_, i) => (
-                            <div key={i} className="h-6 rounded shimmer mx-1" />
-                        ))}
-                    </div>
-                ) : (
-                    <>
-                        {/* Folders section */}
-                        {folders.length > 0 && (
-                            <div className="mb-1">
+            {/* Scroll — hidden when collapsed */}
+            {!collapsed && (
+                <div className="flex-1 overflow-y-auto px-2 pb-4">
+                    {loading ? (
+                        <div className="space-y-1">
+                            {[...Array(5)].map((_, i) => (
+                                <div key={i} className="h-6 rounded shimmer mx-1" />
+                            ))}
+                        </div>
+                    ) : (
+                        <>
+                            {/* Folders section */}
+                            {folders.length > 0 && (
+                                <div className="mb-1">
+                                    <div className="flex items-center justify-between px-1 py-1 mb-0.5">
+                                        <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Folders</span>
+                                        <button onClick={createFolder} className="text-gray-400 hover:text-gray-600">
+                                            <Plus className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                    {folders.map((folder) => {
+                                        const isOpen = expandedFolders.has(folder.id);
+                                        return (
+                                            <div key={folder.id}>
+                                                <button
+                                                    onClick={() => setExpandedFolders((prev) => {
+                                                        const next = new Set(Array.from(prev));
+                                                        isOpen ? next.delete(folder.id) : next.add(folder.id);
+                                                        return next;
+                                                    })}
+                                                    className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                                                >
+                                                    {isOpen ? <ChevronDown className="w-3 h-3 text-gray-400" /> : <ChevronRight className="w-3 h-3 text-gray-400" />}
+                                                    {isOpen ? <FolderOpen className="w-3.5 h-3.5 text-gray-400" /> : <Folder className="w-3.5 h-3.5 text-gray-400" />}
+                                                    <span className="flex-1 truncate text-left">{folder.name}</span>
+                                                </button>
+                                                {isOpen && folderProjects(folder.id).map((p) => (
+                                                    <ProjectRow
+                                                        key={p.id}
+                                                        project={p}
+                                                        active={pathname === `/projects/${p.id}`}
+                                                        editingId={editingId}
+                                                        editName={editName}
+                                                        setEditingId={setEditingId}
+                                                        setEditName={setEditName}
+                                                        renameProject={renameProject}
+                                                        deleteProject={deleteProject}
+                                                        indent
+                                                    />
+                                                ))}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {/* Projects section */}
+                            <div>
                                 <div className="flex items-center justify-between px-1 py-1 mb-0.5">
-                                    <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Folders</span>
-                                    <button onClick={createFolder} className="text-gray-400 hover:text-gray-600">
+                                    <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Projects</span>
+                                    <button onClick={() => createFolder()} className="text-gray-400 hover:text-gray-600">
                                         <Plus className="w-3 h-3" />
                                     </button>
                                 </div>
-                                {folders.map((folder) => {
-                                    const isOpen = expandedFolders.has(folder.id);
-                                    return (
-                                        <div key={folder.id}>
-                                            <button
-                                                onClick={() => setExpandedFolders((prev) => {
-                                                    const next = new Set(Array.from(prev));
-                                                    isOpen ? next.delete(folder.id) : next.add(folder.id);
-                                                    return next;
-                                                })}
-                                                className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-                                            >
-                                                {isOpen ? <ChevronDown className="w-3 h-3 text-gray-400" /> : <ChevronRight className="w-3 h-3 text-gray-400" />}
-                                                {isOpen ? <FolderOpen className="w-3.5 h-3.5 text-gray-400" /> : <Folder className="w-3.5 h-3.5 text-gray-400" />}
-                                                <span className="flex-1 truncate text-left">{folder.name}</span>
-                                            </button>
-                                            {isOpen && folderProjects(folder.id).map((p) => (
-                                                <ProjectRow
-                                                    key={p.id}
-                                                    project={p}
-                                                    active={pathname === `/projects/${p.id}`}
-                                                    editingId={editingId}
-                                                    editName={editName}
-                                                    setEditingId={setEditingId}
-                                                    setEditName={setEditName}
-                                                    renameProject={renameProject}
-                                                    deleteProject={deleteProject}
-                                                    indent
-                                                />
-                                            ))}
-                                        </div>
-                                    );
-                                })}
+                                {rootProjects.map((p) => (
+                                    <ProjectRow
+                                        key={p.id}
+                                        project={p}
+                                        active={pathname === `/projects/${p.id}`}
+                                        editingId={editingId}
+                                        editName={editName}
+                                        setEditingId={setEditingId}
+                                        setEditName={setEditName}
+                                        renameProject={renameProject}
+                                        deleteProject={deleteProject}
+                                    />
+                                ))}
+                                {rootProjects.length === 0 && (
+                                    <p className="text-xs text-gray-400 px-2 py-2">No projects yet</p>
+                                )}
                             </div>
-                        )}
+                        </>
+                    )}
+                </div>
+            )}
 
-                        {/* Projects section */}
-                        <div>
-                            <div className="flex items-center justify-between px-1 py-1 mb-0.5">
-                                <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Projects</span>
-                                <button onClick={() => createFolder()} className="text-gray-400 hover:text-gray-600">
-                                    <Plus className="w-3 h-3" />
-                                </button>
-                            </div>
-                            {rootProjects.map((p) => (
-                                <ProjectRow
-                                    key={p.id}
-                                    project={p}
-                                    active={pathname === `/projects/${p.id}`}
-                                    editingId={editingId}
-                                    editName={editName}
-                                    setEditingId={setEditingId}
-                                    setEditName={setEditName}
-                                    renameProject={renameProject}
-                                    deleteProject={deleteProject}
-                                />
-                            ))}
-                            {rootProjects.length === 0 && (
-                                <p className="text-xs text-gray-400 px-2 py-2">No projects yet</p>
-                            )}
-                        </div>
-                    </>
-                )}
-            </div>
+            {/* Spacer when collapsed to push bottom nav down */}
+            {collapsed && <div className="flex-1" />}
 
             {/* Bottom nav */}
             <div className="border-t border-gray-100 p-2 space-y-0.5">
                 <Link
                     href="/actors"
-                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors ${pathname === '/actors' ? 'bg-gray-100 text-gray-900 font-medium' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'}`}
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors ${pathname === '/actors' ? 'bg-gray-100 text-gray-900 font-medium' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'} ${collapsed ? 'justify-center' : ''}`}
+                    title="Actors"
                 >
-                    <Users className="w-3.5 h-3.5" />
-                    Actors
+                    <Users className="w-3.5 h-3.5 shrink-0" />
+                    {!collapsed && 'Actors'}
                 </Link>
                 <Link
                     href="/preprompts"
-                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors ${pathname === '/preprompts' ? 'bg-gray-100 text-gray-900 font-medium' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'}`}
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors ${pathname === '/preprompts' ? 'bg-gray-100 text-gray-900 font-medium' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'} ${collapsed ? 'justify-center' : ''}`}
+                    title="Pre-prompts"
                 >
-                    <FileText className="w-3.5 h-3.5" />
-                    Pre-prompts
+                    <FileText className="w-3.5 h-3.5 shrink-0" />
+                    {!collapsed && 'Pre-prompts'}
                 </Link>
             </div>
         </div>

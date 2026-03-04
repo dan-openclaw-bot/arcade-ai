@@ -7,9 +7,12 @@ interface GenerationsGridProps {
     generations: Generation[];
     onCardClick: (gen: Generation) => void;
     onDeleted: (id: string) => void;
+    selectedIds?: Set<string>;
+    onToggleSelect?: (id: string) => void;
+    onEdit?: (imageUrl: string) => void;
 }
 
-export default function GenerationsGrid({ generations, onCardClick, onDeleted }: GenerationsGridProps) {
+export default function GenerationsGrid({ generations, onCardClick, onDeleted, selectedIds, onToggleSelect, onEdit }: GenerationsGridProps) {
     if (generations.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-full text-center px-4">
@@ -24,7 +27,7 @@ export default function GenerationsGrid({ generations, onCardClick, onDeleted }:
         <div
             className="grid gap-2 p-4"
             style={{
-                gridTemplateColumns: 'repeat(auto-fill, minmax(175px, 1fr))',
+                gridTemplateColumns: 'repeat(5, 1fr)',
                 alignItems: 'start',
             }}
         >
@@ -34,6 +37,9 @@ export default function GenerationsGrid({ generations, onCardClick, onDeleted }:
                     generation={gen}
                     onClick={() => onCardClick(gen)}
                     onDeleted={onDeleted}
+                    isSelected={selectedIds?.has(gen.id)}
+                    onToggleSelect={onToggleSelect}
+                    onEdit={onEdit}
                 />
             ))}
         </div>

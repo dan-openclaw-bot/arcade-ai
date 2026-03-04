@@ -7,6 +7,7 @@ import GenerationsGrid from '@/components/projects/GenerationsGrid';
 import PromptBar from '@/components/projects/PromptBar';
 import ExpandedView from '@/components/projects/ExpandedView';
 import { Generation, Project, Preprompt, Actor } from '@/lib/types';
+import { Download, Trash2, X, CheckSquare } from 'lucide-react';
 
 export default function ProjectPage() {
     const { id } = useParams<{ id: string }>();
@@ -18,6 +19,9 @@ export default function ProjectPage() {
     const [expandedGen, setExpandedGen] = useState<Generation | null>(null);
     const [editRefUrl, setEditRefUrl] = useState<string | null>(null);
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    // Multi-select state
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
     const loadGenerations = useCallback(async () => {
         const res = await fetch(`/api/generations?project_id=${id}`);
@@ -71,12 +75,65 @@ export default function ProjectPage() {
 
     function handleDeleted(deletedId: string) {
         setGenerations((prev) => prev.filter((g) => g.id !== deletedId));
+        setSelectedIds((prev) => {
+            const next = new Set(Array.from(prev));
+            next.delete(deletedId);
+            return next;
+        });
         if (expandedGen?.id === deletedId) setExpandedGen(null);
     }
 
     function handleEdit(imageUrl: string) {
         setEditRefUrl(imageUrl);
     }
+
+    function handleToggleSelect(genId: string) {
+        setSelectedIds((prev) => {
+            const next = new Set(Array.from(prev));
+            if (next.has(genId)) {
+                next.delete(genId);
+            } else {
+                next.add(genId);
+            }
+            return next;
+        });
+    }
+
+    function handleSelectAll() {
+        const doneGens = generations.filter((g) => g.status === 'done');
+        if (selectedIds.size === doneGens.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(doneGens.map((g) => g.id)));
+        }
+    }
+
+    async function handleDownloadSelected() {
+        const selectedGens = generations.filter((g) => selectedIds.has(g.id) && g.output_url);
+        for (const gen of selectedGens) {
+            const res = await fetch(gen.output_url!);
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `arcade-${gen.id}.${gen.type === 'video' ? 'mp4' : 'jpg'}`;
+            a.click();
+            URL.revokeObjectURL(url);
+            // Small delay between downloads
+            await new Promise((r) => setTimeout(r, 300));
+        }
+    }
+
+    async function handleDeleteSelected() {
+        if (!confirm(`Delete ${selectedIds.size} selected generation${selectedIds.size > 1 ? 's' : ''}?`)) return;
+        const ids = Array.from(selectedIds);
+        await Promise.all(ids.map((gid) => fetch(`/api/generations/${gid}`, { method: 'DELETE' })));
+        setGenerations((prev) => prev.filter((g) => !selectedIds.has(g.id)));
+        if (expandedGen && selectedIds.has(expandedGen.id)) setExpandedGen(null);
+        setSelectedIds(new Set());
+    }
+
+    const hasSelection = selectedIds.size > 0;
 
     return (
         <div className="flex h-screen overflow-hidden" style={{ background: '#f0f0f0' }}>
@@ -122,20 +179,74 @@ export default function ProjectPage() {
                             generations={generations}
                             onCardClick={setExpandedGen}
                             onDeleted={handleDeleted}
+                            selectedIds={selectedIds}
+                            onToggleSelect={handleToggleSelect}
+                            onEdit={handleEdit}
                         />
                     )}
                 </div>
 
-                {/* Prompt bar */}
+                {/* Bottom area: Selection bar OR Prompt bar */}
                 <div style={{ background: '#ebebeb' }}>
-                    <PromptBar
-                        projectId={id}
-                        preprompts={preprompts}
-                        actors={actors}
-                        onGenerationStarted={handleGenerationStarted}
-                        editReferenceUrl={editRefUrl}
-                        onEditReferenceHandled={() => setEditRefUrl(null)}
-                    />
+                    {hasSelection ? (
+                        /* Selection action bar */
+                        <div className="flex justify-center px-6 pb-6">
+                            <div className="selection-bar w-full max-w-2xl flex items-center gap-3 px-5 py-3.5">
+                                {/* Count */}
+                                <span className="text-sm font-semibold text-gray-900">
+                                    {selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}
+                                </span>
+
+                                {/* Select all */}
+                                <button
+                                    onClick={handleSelectAll}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition-colors"
+                                >
+                                    <CheckSquare className="w-3.5 h-3.5" />
+                                    {selectedIds.size === generations.filter((g) => g.status === 'done').length ? 'Tout désélectionner' : 'Tout sélectionner'}
+                                </button>
+
+                                <div className="flex-1" />
+
+                                {/* Download selected */}
+                                <button
+                                    onClick={handleDownloadSelected}
+                                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+                                >
+                                    <Download className="w-4 h-4" />
+                                    Télécharger
+                                </button>
+
+                                {/* Delete selected */}
+                                <button
+                                    onClick={handleDeleteSelected}
+                                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                    Supprimer
+                                </button>
+
+                                {/* Cancel */}
+                                <button
+                                    onClick={() => setSelectedIds(new Set())}
+                                    className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                                    title="Annuler la sélection"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        /* Normal prompt bar */
+                        <PromptBar
+                            projectId={id}
+                            preprompts={preprompts}
+                            actors={actors}
+                            onGenerationStarted={handleGenerationStarted}
+                            editReferenceUrl={editRefUrl}
+                            onEditReferenceHandled={() => setEditRefUrl(null)}
+                        />
+                    )}
                 </div>
             </div>
 

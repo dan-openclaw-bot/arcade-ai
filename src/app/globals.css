@@ -144,3 +144,88 @@ body {
 .animate-slide-up {
   animation: slideUp 0.2s ease;
 }
+
+/* Sidebar collapse transition */
+.sidebar-transition {
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-collapse-hide {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+  transition: opacity 0.15s ease, width 0.15s ease;
+}
+
+.sidebar-collapse-show {
+  opacity: 1;
+  transition: opacity 0.2s ease 0.1s;
+}
+
+/* Glassmorphism hover buttons */
+.glass-btn {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 12px;
+  transition: all 0.15s ease;
+}
+
+.glass-btn:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+/* Selection checkbox */
+.select-checkbox {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.select-checkbox:hover {
+  border-color: #fff;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.select-checkbox.checked {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+/* Selection action bar */
+.selection-bar {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 28px rgba(0, 0, 0, 0.09), 0 1px 4px rgba(0, 0, 0, 0.05);
+  animation: slideUp 0.2s ease;
+}
+
+/* Icon button on hover overlay */
+.overlay-icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.overlay-icon-btn:hover {
+  background: rgba(0, 0, 0, 0.55);
+}

@@ -1,16 +1,20 @@
 'use client';
 
+import { useState } from 'react';
 import { Generation } from '@/lib/types';
-import { Download, Trash2, AlertCircle } from 'lucide-react';
+import { Download, MoreHorizontal, Pencil, Clapperboard, AlertCircle, Check } from 'lucide-react';
 import { IMAGE_MODELS, VIDEO_MODELS } from '@/lib/types';
 
 interface GenerationCardProps {
     generation: Generation;
     onClick: () => void;
     onDeleted: (id: string) => void;
+    isSelected?: boolean;
+    onToggleSelect?: (id: string) => void;
+    onEdit?: (imageUrl: string) => void;
 }
 
-export default function GenerationCard({ generation, onClick, onDeleted }: GenerationCardProps) {
+export default function GenerationCard({ generation, onClick, onDeleted, isSelected, onToggleSelect, onEdit }: GenerationCardProps) {
     const [deleting, setDeleting] = useState(false);
     const isGenerating = generation.status === 'generating' || generation.status === 'pending';
     const isError = generation.status === 'error';
@@ -39,11 +43,23 @@ export default function GenerationCard({ generation, onClick, onDeleted }: Gener
         URL.revokeObjectURL(url);
     }
 
+    function handleSelect(e: React.MouseEvent) {
+        e.stopPropagation();
+        onToggleSelect?.(generation.id);
+    }
+
+    function handleEdit(e: React.MouseEvent) {
+        e.stopPropagation();
+        if (generation.output_url) {
+            onEdit?.(generation.output_url);
+        }
+    }
+
     const aspectClass = 'aspect-square';
 
     return (
         <div
-            className={`group relative rounded-xl overflow-hidden cursor-pointer ${aspectClass}`}
+            className={`group relative rounded-xl overflow-hidden cursor-pointer ${aspectClass} ${isSelected ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}
             style={{ background: '#d8d8d8' }}
             onClick={onClick}
         >
@@ -87,25 +103,60 @@ export default function GenerationCard({ generation, onClick, onDeleted }: Gener
                     )}
 
                     {/* Hover overlay */}
-                    <div className="card-overlay absolute inset-0 flex flex-col justify-between p-2" style={{ background: 'rgba(0,0,0,0.45)' }}>
-                        <div className="flex justify-end gap-1">
-                            <button onClick={handleDownload} className="p-1.5 rounded-lg bg-black/40 text-white hover:bg-black/60 transition-colors" title="Download">
-                                <Download className="w-3 h-3" />
+                    <div className="card-overlay absolute inset-0 flex flex-col justify-between p-2.5" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.05) 40%, rgba(0,0,0,0.05) 60%, rgba(0,0,0,0.4) 100%)' }}>
+                        {/* Top row: checkbox left, buttons right */}
+                        <div className="flex items-start justify-between">
+                            {/* Select checkbox */}
+                            <button
+                                onClick={handleSelect}
+                                className={`select-checkbox ${isSelected ? 'checked' : ''}`}
+                            >
+                                {isSelected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
                             </button>
-                            <button onClick={handleDelete} disabled={deleting} className="p-1.5 rounded-lg bg-black/40 text-white hover:bg-red-600/70 transition-colors" title="Delete">
-                                <Trash2 className="w-3 h-3" />
-                            </button>
+
+                            {/* Top right: more + download */}
+                            <div className="flex flex-col gap-1.5">
+                                <button onClick={(e) => { e.stopPropagation(); }} className="overlay-icon-btn" title="More">
+                                    <MoreHorizontal className="w-4 h-4" />
+                                </button>
+                                <button onClick={handleDownload} className="overlay-icon-btn" title="Download">
+                                    <Download className="w-4 h-4" />
+                                </button>
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-white text-xs leading-tight line-clamp-2 drop-shadow">{generation.prompt}</p>
-                            <p className="text-gray-300 text-xs mt-0.5 opacity-70">{modelInfo?.name} · {generation.aspect_ratio}</p>
+
+                        {/* Bottom row: Edit + Edit/Use buttons */}
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={handleEdit}
+                                className="glass-btn flex-1 flex items-center justify-center gap-2 py-2.5 text-gray-700"
+                                title="Modifier"
+                            >
+                                <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={onClick}
+                                className="glass-btn flex-1 flex items-center justify-center gap-2 py-2.5 text-gray-700"
+                                title="Voir / Utiliser"
+                            >
+                                <Clapperboard className="w-4 h-4" />
+                            </button>
                         </div>
                     </div>
+
+                    {/* Always show checkbox when selected (even without hover) */}
+                    {isSelected && (
+                        <div className="absolute top-2.5 left-2.5">
+                            <button
+                                onClick={handleSelect}
+                                className="select-checkbox checked"
+                            >
+                                <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                            </button>
+                        </div>
+                    )}
                 </>
             )}
         </div>
     );
 }
-
-// Need to add useState import
-import { useState } from 'react';
