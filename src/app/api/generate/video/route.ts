@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { generateVideo } from '@/lib/gemini';
+import { generateSoraVideo } from '@/lib/openai';
 import { VIDEO_MODELS } from '@/lib/types';
+
+function isSoraModel(model: string): boolean {
+    return model.startsWith('sora-');
+}
 
 export async function POST(req: NextRequest) {
     const supabase = createServerSupabaseClient();
@@ -67,26 +72,61 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: insertError?.message }, { status: 500 });
         }
 
-        // Start video generation (async - returns operation name for polling)
         try {
-            const { operationName } = await generateVideo(
-                finalPrompt,
-                model,
-                aspect_ratio,
-                duration_seconds,
-                reference_image_url
-            );
+            if (isSoraModel(model)) {
+                // ---- SORA 2 / SORA 2 PRO ----
+                // Download reference image to base64 if provided
+                let refImageBase64: string | undefined;
+                if (reference_image_url) {
+                    try {
+                        const imgResponse = await fetch(reference_image_url);
+                        const imgBuffer = Buffer.from(await imgResponse.arrayBuffer());
+                        refImageBase64 = imgBuffer.toString('base64');
+                    } catch (e) {
+                        console.error('Failed to download reference image for Sora:', e);
+                    }
+                }
 
-            // Store operation name in metadata for polling
-            await supabase
-                .from('generations')
-                .update({
-                    metadata: { model_name: modelInfo.name, operation_name: operationName },
-                    updated_at: new Date().toISOString(),
-                })
-                .in('id', records.map((r) => r.id));
+                const { videoId } = await generateSoraVideo(
+                    finalPrompt,
+                    model,
+                    aspect_ratio,
+                    duration_seconds,
+                    refImageBase64,
+                );
 
-            return NextResponse.json({ generations: records, operation_name: operationName }, { status: 201 });
+                // Store video ID in metadata for polling
+                await supabase
+                    .from('generations')
+                    .update({
+                        metadata: { model_name: modelInfo.name, sora_video_id: videoId, provider: 'openai' },
+                        updated_at: new Date().toISOString(),
+                    })
+                    .in('id', records.map((r) => r.id));
+
+                return NextResponse.json({ generations: records, sora_video_id: videoId }, { status: 201 });
+
+            } else {
+                // ---- VEO / GEMINI VIDEO ----
+                const { operationName } = await generateVideo(
+                    finalPrompt,
+                    model,
+                    aspect_ratio,
+                    duration_seconds,
+                    reference_image_url,
+                );
+
+                // Store operation name in metadata for polling
+                await supabase
+                    .from('generations')
+                    .update({
+                        metadata: { model_name: modelInfo.name, operation_name: operationName },
+                        updated_at: new Date().toISOString(),
+                    })
+                    .in('id', records.map((r) => r.id));
+
+                return NextResponse.json({ generations: records, operation_name: operationName }, { status: 201 });
+            }
         } catch (genError: unknown) {
             await supabase
                 .from('generations')

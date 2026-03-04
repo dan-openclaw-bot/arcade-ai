@@ -46,6 +46,8 @@ export default function ProjectPage() {
         function startPoll() {
             if (pollRef.current) clearInterval(pollRef.current);
             pollRef.current = setInterval(async () => {
+                // Trigger server-side video poll (updates generating → done)
+                await fetch('/api/generate/video/poll').catch(() => { });
                 const data = await loadGenerations();
                 const stillGenerating = data.some((g) => g.status === 'generating' || g.status === 'pending');
                 if (!stillGenerating && pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
