@@ -40,6 +40,19 @@ function SettingsPopup({
         ? `$${((imgModel.pricePerImage || 0) * count).toFixed(3)}`
         : `$${((vidModel.pricePerSecond || 0) * videoDuration * count).toFixed(2)}`;
 
+    // Compute available duration options based on model max
+    const maxDur = vidModel.maxDuration || 16;
+    const allDurations = [5, 8, 12, 16, 20, 25];
+    const durationOptions = allDurations.filter((d) => d <= maxDur);
+
+    function handleVideoModelChange(newModel: string) {
+        setVideoModel(newModel);
+        // Clamp duration to new model's max
+        const newVidModel = VIDEO_MODELS.find((m) => m.id === newModel);
+        const newMax = newVidModel?.maxDuration || 16;
+        if (videoDuration > newMax) setVideoDuration(newMax);
+    }
+
     const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
         <div className="flex items-center justify-between py-3 px-5" style={{ borderBottom: '1px solid #f2f2f2' }}>
             <span className="text-sm text-gray-600">{label}</span>
@@ -117,7 +130,7 @@ function SettingsPopup({
             {tab === 'video' && (
                 <>
                     <Row label="Model">
-                        <select value={videoModel} onChange={(e) => setVideoModel(e.target.value)} className="appearance-none bg-transparent text-sm font-semibold text-gray-900 outline-none cursor-pointer pr-1">
+                        <select value={videoModel} onChange={(e) => handleVideoModelChange(e.target.value)} className="appearance-none bg-transparent text-sm font-semibold text-gray-900 outline-none cursor-pointer pr-1">
                             {VIDEO_MODELS.filter((m) => m.available).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                         </select>
                         <SelectArrow />
@@ -128,13 +141,13 @@ function SettingsPopup({
                         </select>
                         <SelectArrow />
                     </Row>
-                    <Row label="Length">
+                    <Row label={`Durée (max ${maxDur}s)`}>
                         <select value={videoDuration} onChange={(e) => setVideoDuration(Number(e.target.value))} className="appearance-none bg-transparent text-sm font-semibold text-gray-900 outline-none cursor-pointer pr-1">
-                            {[5, 8, 12, 16].map((d) => <option key={d} value={d}>{d}s</option>)}
+                            {durationOptions.map((d) => <option key={d} value={d}>{d}s</option>)}
                         </select>
                         <SelectArrow />
                     </Row>
-                    <Row label="Resolution">
+                    <Row label="Résolution">
                         <select value={videoResolution} onChange={(e) => setVideoResolution(e.target.value)} className="appearance-none bg-transparent text-sm font-semibold text-gray-900 outline-none cursor-pointer pr-1">
                             {['720p', '1080p'].map((r) => <option key={r} value={r}>{r}</option>)}
                         </select>
@@ -295,7 +308,8 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                         duration_seconds: currentVideoDuration,
                         resolution: currentVideoResolution,
                         count: currentCount,
-                        reference_image_url: refImageUrl,
+                        // Actor image is used as reference for video if no explicit refImage
+                        reference_image_url: refImageUrl || (selectedActorId ? actors.find((a) => a.id === selectedActorId)?.image_url : undefined),
                         preprompt_id: selectedPrepromptId || undefined,
                         actor_id: selectedActorId || undefined,
                     };

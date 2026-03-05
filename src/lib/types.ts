@@ -72,6 +72,7 @@ export interface ModelInfo {
     type: GenerationType;
     available: boolean;        // Whether it's callable via our API key
     badge?: string;            // Optional badge text e.g. "NEW", "BEST"
+    maxDuration?: number;      // Max video duration in seconds (video models only)
 }
 
 export const IMAGE_MODELS: ModelInfo[] = [
@@ -135,6 +136,7 @@ export const VIDEO_MODELS: ModelInfo[] = [
         maxAspectRatios: ['9:16', '1:1', '16:9'],
         type: 'video',
         available: true,
+        maxDuration: 16,
     },
     {
         id: 'sora-2',
@@ -147,6 +149,7 @@ export const VIDEO_MODELS: ModelInfo[] = [
         type: 'video',
         available: true,
         badge: 'NEW',
+        maxDuration: 20,
     },
     {
         id: 'sora-2-pro',
@@ -159,6 +162,7 @@ export const VIDEO_MODELS: ModelInfo[] = [
         type: 'video',
         available: true,
         badge: 'RECOMMENDED',
+        maxDuration: 25,
     },
     {
         id: 'veo-3.0-generate-preview',
@@ -171,6 +175,7 @@ export const VIDEO_MODELS: ModelInfo[] = [
         type: 'video',
         available: false,
         badge: 'COMING SOON',
+        maxDuration: 16,
     },
 ];
 
