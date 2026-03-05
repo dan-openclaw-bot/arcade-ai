@@ -47,7 +47,7 @@ export async function GET() {
                             .from('generations')
                             .update({
                                 status: 'done',
-                                media_url: urlData.publicUrl,
+                                output_url: urlData.publicUrl,
                                 updated_at: new Date().toISOString(),
                             })
                             .eq('id', gen.id);
@@ -77,7 +77,7 @@ export async function GET() {
                             .from('generations')
                             .update({
                                 status: 'done',
-                                media_url: urlData.publicUrl,
+                                output_url: urlData.publicUrl,
                                 updated_at: new Date().toISOString(),
                             })
                             .eq('id', gen.id);

@@ -84,14 +84,14 @@ export async function pollSoraVideo(
         // Download the video
         try {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const downloadResponse = await (getOpenAI() as any).videos.download(videoId);
-            // The response contains the video data
-            if (downloadResponse.url) {
-                const videoResponse = await fetch(downloadResponse.url);
-                const buffer = Buffer.from(await videoResponse.arrayBuffer());
-                const base64 = buffer.toString('base64');
-                return { done: true, videoBase64: base64, status: 'completed' };
+            const response = await (getOpenAI() as any).videos.downloadContent(videoId);
+            if (!response.ok) {
+                console.error(`Download failed: ${response.status} ${response.statusText}`);
+                return { done: true, status: 'error' };
             }
+            const buffer = Buffer.from(await response.arrayBuffer());
+            const base64 = buffer.toString('base64');
+            return { done: true, videoBase64: base64, status: 'completed' };
         } catch (e) {
             console.error('Error downloading Sora video:', e);
         }
