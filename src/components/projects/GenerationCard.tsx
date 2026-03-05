@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Generation } from '@/lib/types';
-import { Download, MoreHorizontal, Pencil, Clapperboard, AlertCircle, Check } from 'lucide-react';
+import { Download, MoreHorizontal, Pencil, Clapperboard, AlertCircle, Check, User } from 'lucide-react';
 import { IMAGE_MODELS, VIDEO_MODELS } from '@/lib/types';
 
 interface GenerationCardProps {
@@ -16,6 +16,7 @@ interface GenerationCardProps {
 
 export default function GenerationCard({ generation, onClick, onDeleted, isSelected, onToggleSelect, onEdit }: GenerationCardProps) {
     const [deleting, setDeleting] = useState(false);
+    const [actorSaved, setActorSaved] = useState(false);
     const isGenerating = generation.status === 'generating' || generation.status === 'pending';
     const isError = generation.status === 'error';
     const isDone = generation.status === 'done';
@@ -53,6 +54,20 @@ export default function GenerationCard({ generation, onClick, onDeleted, isSelec
         if (generation.output_url) {
             onEdit?.(generation.output_url);
         }
+    }
+
+    async function handleSaveAsActor(e: React.MouseEvent) {
+        e.stopPropagation();
+        if (!generation.output_url) return;
+        const name = prompt('Nom de l\'acteur :');
+        if (!name?.trim()) return;
+        await fetch('/api/actors', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name.trim(), description: 'Généré depuis le projet', image_url: generation.output_url }),
+        });
+        setActorSaved(true);
+        setTimeout(() => setActorSaved(false), 2000);
     }
 
     const aspectClass = 'aspect-square';
@@ -118,11 +133,13 @@ export default function GenerationCard({ generation, onClick, onDeleted, isSelec
                                 {isSelected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
                             </button>
 
-                            {/* Top right: more + download */}
+                            {/* Top right: more + download + (image) save as actor */}
                             <div className="flex flex-col gap-1.5">
-                                <button onClick={(e) => { e.stopPropagation(); }} className="overlay-icon-btn" title="More">
-                                    <MoreHorizontal className="w-4 h-4" />
-                                </button>
+                                {generation.type === 'image' && (
+                                    <button onClick={handleSaveAsActor} className="overlay-icon-btn" title="Sauvegarder comme acteur">
+                                        {actorSaved ? <Check className="w-4 h-4 text-green-400" /> : <User className="w-4 h-4" />}
+                                    </button>
+                                )}
                                 <button onClick={handleDownload} className="overlay-icon-btn" title="Download">
                                     <Download className="w-4 h-4" />
                                 </button>

@@ -1,7 +1,7 @@
 'use client';
 
 import { Generation } from '@/lib/types';
-import { X, Download, Copy, Check, ChevronLeft, ChevronRight, Trash2, Pencil } from 'lucide-react';
+import { X, Download, Copy, Check, ChevronLeft, ChevronRight, Trash2, Pencil, User } from 'lucide-react';
 import { useState } from 'react';
 import { IMAGE_MODELS, VIDEO_MODELS } from '@/lib/types';
 
@@ -16,6 +16,10 @@ interface ExpandedViewProps {
 
 export default function ExpandedView({ generation, allGenerations, onClose, onNavigate, onDeleted, onEdit }: ExpandedViewProps) {
     const [copied, setCopied] = useState(false);
+    const [showActorModal, setShowActorModal] = useState(false);
+    const [actorName, setActorName] = useState('');
+    const [savingActor, setSavingActor] = useState(false);
+    const [actorSaved, setActorSaved] = useState(false);
 
     const currentIndex = allGenerations.findIndex((g) => g.id === generation.id);
     const prev = currentIndex > 0 ? allGenerations[currentIndex - 1] : null;
@@ -46,6 +50,28 @@ export default function ExpandedView({ generation, allGenerations, onClose, onNa
         await fetch(`/api/generations/${generation.id}`, { method: 'DELETE' });
         onDeleted(generation.id);
         onClose();
+    }
+
+    async function handleSaveAsActor() {
+        if (!actorName.trim() || !generation.output_url) return;
+        setSavingActor(true);
+        try {
+            await fetch('/api/actors', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: actorName.trim(),
+                    description: 'Généré depuis le projet',
+                    image_url: generation.output_url,
+                }),
+            });
+            setActorSaved(true);
+            setShowActorModal(false);
+            setActorName('');
+            setTimeout(() => setActorSaved(false), 3000);
+        } finally {
+            setSavingActor(false);
+        }
     }
 
     return (
@@ -194,6 +220,54 @@ export default function ExpandedView({ generation, allGenerations, onClose, onNa
                     {generation.error_message && (
                         <div className="bg-red-50 border border-red-100 rounded-xl p-3">
                             <p className="text-red-600 text-xs leading-relaxed">{generation.error_message}</p>
+                        </div>
+                    )}
+
+                    {/* Save as actor — images only */}
+                    {generation.type === 'image' && generation.output_url && generation.status === 'done' && (
+                        <div>
+                            <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-2">Actions</p>
+                            {actorSaved ? (
+                                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-green-50 border border-green-100">
+                                    <Check className="w-4 h-4 text-green-500" />
+                                    <span className="text-sm text-green-700 font-medium">Acteur sauvegardé !</span>
+                                </div>
+                            ) : showActorModal ? (
+                                <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2">
+                                    <p className="text-xs text-gray-500 font-medium">Nom de l&apos;acteur</p>
+                                    <input
+                                        autoFocus
+                                        value={actorName}
+                                        onChange={(e) => setActorName(e.target.value)}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') handleSaveAsActor(); if (e.key === 'Escape') setShowActorModal(false); }}
+                                        placeholder="Ex: Marie, Jean-Pierre..."
+                                        className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-violet-400"
+                                    />
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setShowActorModal(false)}
+                                            className="flex-1 py-1.5 rounded-lg text-sm text-gray-500 hover:bg-gray-200 transition-colors"
+                                        >
+                                            Annuler
+                                        </button>
+                                        <button
+                                            onClick={handleSaveAsActor}
+                                            disabled={savingActor || !actorName.trim()}
+                                            className="flex-1 py-1.5 rounded-lg text-sm font-semibold bg-violet-600 hover:bg-violet-500 text-white transition-colors disabled:opacity-40"
+                                        >
+                                            {savingActor ? 'Sauvegarde...' : 'Confirmer'}
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => setShowActorModal(true)}
+                                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 hover:border-violet-300 hover:bg-violet-50 text-sm text-gray-700 font-medium transition-colors"
+                                >
+                                    <User className="w-4 h-4 text-gray-400" />
+                                    Sauvegarder comme acteur
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
