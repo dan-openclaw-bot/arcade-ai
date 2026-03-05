@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300; // 5 minutes to allow for downloading and uploading 10MB+ video buffers
 
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
@@ -41,7 +42,13 @@ export async function GET() {
                         .from('generations')
                         .upload(fileName, buffer, { contentType: 'video/mp4' });
 
-                    if (!uploadError) {
+                    if (uploadError) {
+                        console.error('Supabase upload error:', uploadError);
+                        await supabase
+                            .from('generations')
+                            .update({ status: 'error', error_message: `Upload failed: ${uploadError.message}`, updated_at: new Date().toISOString() })
+                            .eq('id', gen.id);
+                    } else {
                         const { data: urlData } = supabase.storage.from('generations').getPublicUrl(fileName);
                         await supabase
                             .from('generations')
