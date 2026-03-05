@@ -44,11 +44,23 @@ export async function generateSoraVideo(
         seconds,
     };
 
-    // Add reference image if provided — must be a Buffer passed as Uploadable
+    // Add reference image if provided — must be a Buffer passed as Uploadable and EXACTLY match target size
     if (referenceImageBase64) {
-        const buffer = Buffer.from(referenceImageBase64, 'base64');
+        const [wStr, hStr] = size.split('x');
+        const targetWidth = parseInt(wStr, 10);
+        const targetHeight = parseInt(hStr, 10);
+
+        const originalBuffer = Buffer.from(referenceImageBase64, 'base64');
+        const sharp = (await import('sharp')).default;
+
+        // Resize and crop to exactly match target video dimensions
+        const resizedBuffer = await sharp(originalBuffer)
+            .resize(targetWidth, targetHeight, { fit: 'cover', position: 'center' })
+            .jpeg({ quality: 95 })
+            .toBuffer();
+
         const { toFile } = await import('openai');
-        params.input_reference = await toFile(buffer, 'reference.jpg', { type: 'image/jpeg' });
+        params.input_reference = await toFile(resizedBuffer, 'reference.jpg', { type: 'image/jpeg' });
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
