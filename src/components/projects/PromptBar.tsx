@@ -44,6 +44,7 @@ function SettingsPopup({
     const maxDur = vidModel.maxDuration || 16;
     const allDurations = [5, 8, 12, 16, 20, 25];
     const durationOptions = allDurations.filter((d) => d <= maxDur);
+    const isSora = videoModel.startsWith('sora-');
 
     function handleVideoModelChange(newModel: string) {
         setVideoModel(newModel);
@@ -147,12 +148,19 @@ function SettingsPopup({
                         </select>
                         <SelectArrow />
                     </Row>
-                    <Row label="Résolution">
-                        <select value={videoResolution} onChange={(e) => setVideoResolution(e.target.value)} className="appearance-none bg-transparent text-sm font-semibold text-gray-900 outline-none cursor-pointer pr-1">
-                            {['720p', '1080p'].map((r) => <option key={r} value={r}>{r}</option>)}
-                        </select>
-                        <SelectArrow />
-                    </Row>
+                    {!isSora && (
+                        <Row label="Résolution">
+                            <select value={videoResolution} onChange={(e) => setVideoResolution(e.target.value)} className="appearance-none bg-transparent text-sm font-semibold text-gray-900 outline-none cursor-pointer pr-1">
+                                {['720p', '1080p'].map((r) => <option key={r} value={r}>{r}</option>)}
+                            </select>
+                            <SelectArrow />
+                        </Row>
+                    )}
+                    {isSora && (
+                        <Row label="Résolution">
+                            <span className="text-sm text-gray-400 italic">Auto (ratio)</span>
+                        </Row>
+                    )}
                     {/* Price */}
                     <div className="px-5 py-3 flex items-center justify-between bg-gray-50" style={{ borderRadius: '0 0 16px 16px' }}>
                         <span className="text-xs text-gray-500">Estimated cost</span>
