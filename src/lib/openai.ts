@@ -29,9 +29,10 @@ export async function generateSoraVideo(
         size = model === 'sora-2-pro' ? '1024x1792' : '720x1280';
     }
 
-    // Sora API accepts any integer seconds, Sora 2 Pro up to 25, Sora 2 up to 20
-    const maxSec = model === 'sora-2-pro' ? 25 : 20;
-    const seconds = Math.max(4, Math.min(durationSeconds, maxSec));
+    // Sora API DEVELOPER tier only accepts 4, 8 or 12 seconds
+    // (25s is web-only for ChatGPT Pro — not available via API)
+    const soraSeconds = durationSeconds <= 4 ? 4 : durationSeconds <= 8 ? 8 : 12;
+    const seconds = soraSeconds;
 
     // Build request params
     const openai = getOpenAI();

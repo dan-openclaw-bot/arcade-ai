@@ -42,7 +42,8 @@ function SettingsPopup({
 
     // Compute available duration options based on model max
     const maxDur = vidModel.maxDuration || 16;
-    const allDurations = [4, 8, 12, 16, 20, 25];
+    // Sora API: only 4/8/12 valid. Veo: up to 16
+    const allDurations = [4, 8, 12, 16];
     const durationOptions = allDurations.filter((d) => d <= maxDur);
     const isSora = videoModel.startsWith('sora-');
 

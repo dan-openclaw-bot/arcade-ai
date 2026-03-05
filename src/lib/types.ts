@@ -141,7 +141,7 @@ export const VIDEO_MODELS: ModelInfo[] = [
     {
         id: 'sora-2',
         name: 'Sora 2',
-        description: 'OpenAI video generation, 720p, fast & affordable',
+        description: 'OpenAI video generation, fast & affordable',
         pricePerSecond: 0.10,
         speed: 'fast',
         quality: 'standard',
@@ -149,12 +149,12 @@ export const VIDEO_MODELS: ModelInfo[] = [
         type: 'video',
         available: true,
         badge: 'NEW',
-        maxDuration: 20,
+        maxDuration: 12,
     },
     {
         id: 'sora-2-pro',
         name: 'Sora 2 Pro',
-        description: 'OpenAI premium video generation, superior quality & realism',
+        description: 'OpenAI premium video, superior quality & realism',
         pricePerSecond: 0.30,
         speed: 'standard',
         quality: 'ultra',
@@ -162,7 +162,7 @@ export const VIDEO_MODELS: ModelInfo[] = [
         type: 'video',
         available: true,
         badge: 'RECOMMENDED',
-        maxDuration: 25,
+        maxDuration: 12,
     },
     {
         id: 'veo-3.0-generate-preview',
