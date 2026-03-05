@@ -19,35 +19,35 @@ export async function generateSoraVideo(
     durationSeconds: number = 10,
     referenceImageBase64?: string,
 ): Promise<{ videoId: string }> {
-    // Map aspect ratio to Sora resolution (using LOWEST available)
-    // sora-2: 720x1280 / 1280x720 only (no 1:1 support, use smallest square)
+    // Map aspect ratio to Sora supported size strings
+    // sora-2: 720x1280 / 1280x720
     // sora-2-pro: 720x1280 / 1024x1792 / 1280x720 / 1792x1024 / 480x480 / 720x720 / 1080x1080
-    let width: number;
-    let height: number;
+    let size: string;
     if (aspectRatio === '16:9') {
-        width = 1280; height = 720; // lowest landscape for both models
+        size = '1280x720';
     } else if (aspectRatio === '9:16') {
-        width = 720; height = 1280; // lowest portrait for both models
+        size = '720x1280';
     } else {
-        // 1:1 — use 480x480 (lowest square, sora-2-pro supports it)
-        width = 480; height = 480;
+        // 1:1 — sora-2-pro supports 720x720, sora-2 use smallest valid square
+        size = model === 'sora-2-pro' ? '720x720' : '480x480';
     }
 
-    // Build request params
+    // Clamp duration to model limits
+    const maxSeconds = model === 'sora-2-pro' ? 25 : 20;
+    const seconds = Math.min(durationSeconds, maxSeconds);
+
+    // Build request params — prompt is top-level per OpenAI API spec
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const params: any = {
         model,
-        input: {
-            prompt,
-        },
-        duration: durationSeconds > 10 ? 10 : (durationSeconds < 5 ? 5 : durationSeconds),
-        width,
-        height,
+        prompt,
+        size,
+        seconds,
     };
 
     // Add reference image if provided
     if (referenceImageBase64) {
-        params.input.image = {
+        params.image = {
             type: 'base64',
             data: referenceImageBase64,
         };
@@ -58,6 +58,7 @@ export async function generateSoraVideo(
 
     return { videoId: response.id };
 }
+
 
 /**
  * Poll Sora video generation status
