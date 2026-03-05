@@ -16,27 +16,25 @@ export async function generateSoraVideo(
     prompt: string,
     model: string,
     aspectRatio: string = '9:16',
-    durationSeconds: number = 10,
+    durationSeconds: number = 8,
     referenceImageBase64?: string,
 ): Promise<{ videoId: string }> {
-    // Map aspect ratio to Sora supported size strings
-    // sora-2: 720x1280 / 1280x720
-    // sora-2-pro: 720x1280 / 1024x1792 / 1280x720 / 1792x1024 / 480x480 / 720x720 / 1080x1080
-    let size: string;
+    // Sora only supports these sizes (no 1:1 square in V1 API)
+    // VideoSize: "720x1280" | "1280x720" | "1024x1792" | "1792x1024"
+    let size: '720x1280' | '1280x720' | '1024x1792' | '1792x1024';
     if (aspectRatio === '16:9') {
-        size = '1280x720';
-    } else if (aspectRatio === '9:16') {
-        size = '720x1280';
+        size = model === 'sora-2-pro' ? '1792x1024' : '1280x720';
     } else {
-        // 1:1 — sora-2-pro supports 720x720, sora-2 use smallest valid square
-        size = model === 'sora-2-pro' ? '720x720' : '480x480';
+        // 9:16 or 1:1 — fall back to portrait (Sora has no square option)
+        size = model === 'sora-2-pro' ? '1024x1792' : '720x1280';
     }
 
-    // Clamp duration to model limits
-    const maxSeconds = model === 'sora-2-pro' ? 25 : 20;
-    const seconds = Math.min(durationSeconds, maxSeconds);
+    // Sora API accepts any integer seconds, Sora 2 Pro up to 25, Sora 2 up to 20
+    const maxSec = model === 'sora-2-pro' ? 25 : 20;
+    const seconds = Math.max(4, Math.min(durationSeconds, maxSec));
 
-    // Build request params — prompt is top-level per OpenAI API spec
+    // Build request params
+    const openai = getOpenAI();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const params: any = {
         model,
@@ -45,19 +43,19 @@ export async function generateSoraVideo(
         seconds,
     };
 
-    // Add reference image if provided
+    // Add reference image if provided — must be a Buffer passed as Uploadable
     if (referenceImageBase64) {
-        params.image = {
-            type: 'base64',
-            data: referenceImageBase64,
-        };
+        const buffer = Buffer.from(referenceImageBase64, 'base64');
+        const { toFile } = await import('openai');
+        params.input_reference = await toFile(buffer, 'reference.jpg', { type: 'image/jpeg' });
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await (getOpenAI() as any).videos.create(params);
+    const response = await (openai as any).videos.create(params);
 
     return { videoId: response.id };
 }
+
 
 
 /**

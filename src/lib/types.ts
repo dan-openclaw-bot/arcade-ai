@@ -154,7 +154,7 @@ export const VIDEO_MODELS: ModelInfo[] = [
     {
         id: 'sora-2-pro',
         name: 'Sora 2 Pro',
-        description: 'OpenAI premium video generation, 720p, superior quality',
+        description: 'OpenAI premium video generation, superior quality & realism',
         pricePerSecond: 0.30,
         speed: 'standard',
         quality: 'ultra',

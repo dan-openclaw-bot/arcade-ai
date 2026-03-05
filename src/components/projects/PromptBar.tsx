@@ -42,7 +42,7 @@ function SettingsPopup({
 
     // Compute available duration options based on model max
     const maxDur = vidModel.maxDuration || 16;
-    const allDurations = [5, 8, 12, 16, 20, 25];
+    const allDurations = [4, 8, 12, 16, 20, 25];
     const durationOptions = allDurations.filter((d) => d <= maxDur);
     const isSora = videoModel.startsWith('sora-');
 
