@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
         // Get the Google API key (admin uses .env, users use header)
         const googleKey = getApiKey(req, 'google', user.id);
         if (!googleKey) {
-            return NextResponse.json({ error: 'Google API key required. Set it in Settings.' }, { status: 400 });
+            return NextResponse.json({ error: 'Google API key required. Set it in Settings.', missingKeyProvider: 'google' }, { status: 400 });
         }
 
         const body = await req.json();

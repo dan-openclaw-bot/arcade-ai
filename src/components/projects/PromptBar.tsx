@@ -246,17 +246,6 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
     async function handleGenerate() {
         if (!prompt.trim()) return;
         setError(null);
-
-        // Check if the required API key is available
-        const currentModel = tab === 'image' ? imageModel : videoModel;
-        const provider = currentModel.startsWith('sora-') ? 'openai' : 'google';
-        const storageKey = provider === 'openai' ? 'openai_key' : 'google_key';
-        const hasKey = !!localStorage.getItem(storageKey);
-        if (!hasKey) {
-            setMissingKeyProvider(provider);
-            return;
-        }
-
         // Capture current values before resetting
         const currentPrompt = prompt.trim();
         const currentRefImageFile = refImageFile;
@@ -311,7 +300,15 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                     const res = await fetch('/api/generate/image', {
                         method: 'POST', headers: apiHeaders, body: JSON.stringify(body),
                     });
-                    if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Generation failed'); }
+                    if (!res.ok) {
+                        const d = await res.json();
+                        if (d.missingKeyProvider) {
+                            setPrompt(currentPrompt); // Recover prompt
+                            setMissingKeyProvider(d.missingKeyProvider);
+                            return;
+                        }
+                        throw new Error(d.error || 'Generation failed');
+                    }
                     // Track cost
                     const imgModel = IMAGE_MODELS.find((m) => m.id === currentImageModel);
                     if (imgModel?.pricePerImage) addSpent(imgModel.pricePerImage * currentCount);
@@ -349,7 +346,15 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                     const res = await fetch('/api/generate/video', {
                         method: 'POST', headers: apiHeaders, body: JSON.stringify(body),
                     });
-                    if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Video generation failed'); }
+                    if (!res.ok) {
+                        const d = await res.json();
+                        if (d.missingKeyProvider) {
+                            setPrompt(currentPrompt); // Recover prompt
+                            setMissingKeyProvider(d.missingKeyProvider);
+                            return;
+                        }
+                        throw new Error(d.error || 'Generation failed');
+                    }
                     // Track cost (estimate)
                     const vidModel = VIDEO_MODELS.find((m) => m.id === currentVideoModel);
                     if (vidModel?.pricePerSecond) addSpent(vidModel.pricePerSecond * currentVideoDuration * currentCount);

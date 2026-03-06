@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
         const provider = getProviderForModel(model);
         const apiKey = getApiKey(req, provider, user.id);
         if (!apiKey) {
-            return NextResponse.json({ error: `${provider === 'openai' ? 'OpenAI' : 'Google'} API key required. Set it in Settings.` }, { status: 400 });
+            return NextResponse.json({ error: `${provider === 'openai' ? 'OpenAI' : 'Google'} API key required. Set it in Settings.`, missingKeyProvider: provider }, { status: 400 });
         }
 
         const modelInfo = VIDEO_MODELS.find((m) => m.id === model);
