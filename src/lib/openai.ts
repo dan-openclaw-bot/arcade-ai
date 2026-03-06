@@ -19,14 +19,14 @@ export async function generateSoraVideo(
     durationSeconds: number = 8,
     referenceImageBase64?: string,
 ): Promise<{ videoId: string }> {
-    // Sora only supports these sizes (no 1:1 square in V1 API)
-    // VideoSize: "720x1280" | "1280x720" | "1024x1792" | "1792x1024"
+    // Sora: always use 720p to keep costs at $0.30/s (1080p = $0.50/s)
+    // VideoSize: "720x1280" (portrait) | "1280x720" (landscape)
     let size: '720x1280' | '1280x720' | '1024x1792' | '1792x1024';
     if (aspectRatio === '16:9') {
-        size = model === 'sora-2-pro' ? '1792x1024' : '1280x720';
+        size = '1280x720';
     } else {
         // 9:16 or 1:1 — fall back to portrait (Sora has no square option)
-        size = model === 'sora-2-pro' ? '1024x1792' : '720x1280';
+        size = '720x1280';
     }
 
     // Sora API DEVELOPER tier only accepts 4, 8 or 12 seconds
