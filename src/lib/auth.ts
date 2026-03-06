@@ -1,7 +1,7 @@
 import { createAuthServerClient, createServerSupabaseClient } from '@/lib/supabase';
 import { NextRequest } from 'next/server';
 
-const ADMIN_USER_ID = process.env.ADMIN_USER_ID || '';
+
 
 /**
  * Get the authenticated user from the request.
@@ -24,7 +24,8 @@ export async function getAuthClient(req?: NextRequest) {
  * Check if a user is the admin
  */
 export function isAdmin(userId: string): boolean {
-    return !!ADMIN_USER_ID && userId === ADMIN_USER_ID;
+    const adminId = process.env.ADMIN_USER_ID;
+    return !!adminId && userId === adminId;
 }
 
 /**
