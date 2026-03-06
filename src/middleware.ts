@@ -25,10 +25,10 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(url);
     }
 
-    // If authenticated and on login page, redirect to home
+    // If authenticated and on login page, redirect to dashboard
     if (user && isLoginPage) {
         const url = request.nextUrl.clone();
-        url.pathname = '/';
+        url.pathname = '/dashboard';
         return NextResponse.redirect(url);
     }
 

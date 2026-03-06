@@ -21,7 +21,7 @@ export default function LoginPage() {
         setError('');
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
-            options: { redirectTo: `${window.location.origin}/auth/callback` },
+            options: { redirectTo: `${window.location.origin}/auth/callback?next=/dashboard` },
         });
         if (error) { setError(error.message); setLoading(false); }
     };
@@ -36,14 +36,14 @@ export default function LoginPage() {
             const { error } = await supabase.auth.signUp({
                 email,
                 password,
-                options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+                options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard` },
             });
             if (error) { setError(error.message); }
             else { setMessage('Vérifie ton email pour confirmer ton compte !'); }
         } else {
             const { error } = await supabase.auth.signInWithPassword({ email, password });
             if (error) { setError(error.message); }
-            else { window.location.href = '/'; }
+            else { window.location.href = '/dashboard'; }
         }
         setLoading(false);
     };
