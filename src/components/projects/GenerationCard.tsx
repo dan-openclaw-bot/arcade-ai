@@ -39,7 +39,10 @@ export default function GenerationCard({ generation, onClick, onDeleted, isSelec
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `arcade-${generation.id}.${generation.type === 'video' ? 'mp4' : 'jpg'}`;
+        let ext = 'jpg';
+        if (generation.type === 'video') ext = 'mp4';
+        else if (generation.output_url.toLowerCase().endsWith('.png')) ext = 'png';
+        a.download = `arcade-${generation.id}.${ext}`;
         a.click();
         URL.revokeObjectURL(url);
     }
