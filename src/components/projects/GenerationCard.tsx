@@ -25,7 +25,6 @@ export default function GenerationCard({ generation, onClick, onDeleted, isSelec
 
     async function handleDelete(e: React.MouseEvent) {
         e.stopPropagation();
-        if (!confirm('Delete this generation?')) return;
         setDeleting(true);
         await fetch(`/api/generations/${generation.id}`, { method: 'DELETE' });
         onDeleted(generation.id);
