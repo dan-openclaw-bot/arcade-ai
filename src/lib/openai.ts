@@ -1,7 +1,8 @@
 import OpenAI from 'openai';
 
 let _openai: OpenAI | null = null;
-function getOpenAI(): OpenAI {
+function getOpenAI(apiKey?: string): OpenAI {
+    if (apiKey) return new OpenAI({ apiKey });
     if (!_openai) {
         _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
     }
@@ -18,6 +19,7 @@ export async function generateSoraVideo(
     aspectRatio: string = '9:16',
     durationSeconds: number = 8,
     referenceImageBase64?: string,
+    apiKey?: string,
 ): Promise<{ videoId: string }> {
     // Sora: always use 720p to keep costs at $0.30/s (1080p = $0.50/s)
     // VideoSize: "720x1280" (portrait) | "1280x720" (landscape)
@@ -35,7 +37,7 @@ export async function generateSoraVideo(
     const seconds = soraSeconds;
 
     // Build request params
-    const openai = getOpenAI();
+    const openai = getOpenAI(apiKey);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const params: any = {
         model,
@@ -76,15 +78,16 @@ export async function generateSoraVideo(
  */
 export async function pollSoraVideo(
     videoId: string,
+    apiKey?: string,
 ): Promise<{ done: boolean; videoBase64?: string; status?: string }> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const video = await (getOpenAI() as any).videos.retrieve(videoId);
+    const video = await (getOpenAI(apiKey) as any).videos.retrieve(videoId);
 
     if (video.status === 'completed') {
         // Download the video
         try {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const response = await (getOpenAI() as any).videos.downloadContent(videoId);
+            const response = await (getOpenAI(apiKey) as any).videos.downloadContent(videoId);
             if (!response.ok) {
                 console.error(`Download failed: ${response.status} ${response.statusText}`);
                 return { done: true, status: 'error' };

@@ -1,12 +1,22 @@
+export const maxDuration = 300;
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
+import { getAuthClient, getApiKey } from '@/lib/auth';
 import { generateImages } from '@/lib/gemini';
 import { IMAGE_MODELS } from '@/lib/types';
 
 export async function POST(req: NextRequest) {
-    const supabase = createServerSupabaseClient();
-
     try {
+        const { user, supabase } = await getAuthClient();
+
+        // Get the Google API key (admin uses .env, users use header)
+        const googleKey = getApiKey(req, 'google', user.id);
+        if (!googleKey) {
+            return NextResponse.json({ error: 'Google API key required. Set it in Settings.' }, { status: 400 });
+        }
+
         const body = await req.json();
         const {
             project_id,
@@ -66,10 +76,12 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: insertError?.message || 'Insert failed' }, { status: 500 });
         }
 
-        // Generate images via Gemini
+        // Generate images via Gemini (with user's key)
+        // Use service role client for storage uploads (RLS doesn't apply to storage the same way)
+        const serviceSupabase = createServerSupabaseClient();
         let images: { base64: string; mimeType: string }[] = [];
         try {
-            images = await generateImages(finalPrompt, model, count, aspect_ratio, reference_image_url, quality_suffix, negative_prompt);
+            images = await generateImages(finalPrompt, model, count, aspect_ratio, reference_image_url, quality_suffix, negative_prompt, googleKey);
         } catch (genError: unknown) {
             // Mark all as error
             await supabase
@@ -97,7 +109,7 @@ export async function POST(req: NextRequest) {
                 const ext = imageData.mimeType === 'image/png' ? 'png' : 'jpg';
                 const filename = `${project_id}/${record.id}.${ext}`;
 
-                const { error: uploadError } = await supabase.storage
+                const { error: uploadError } = await serviceSupabase.storage
                     .from('generations')
                     .upload(filename, buffer, {
                         contentType: imageData.mimeType,
@@ -112,7 +124,7 @@ export async function POST(req: NextRequest) {
                     return { ...record, status: 'error' };
                 }
 
-                const { data: publicUrl } = supabase.storage.from('generations').getPublicUrl(filename);
+                const { data: publicUrl } = serviceSupabase.storage.from('generations').getPublicUrl(filename);
 
                 const { data: updated } = await supabase
                     .from('generations')
@@ -132,6 +144,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ generations: updatedRecords }, { status: 201 });
     } catch (err: unknown) {
         console.error('Generate image error:', err);
+        if (String(err).includes('Unauthorized')) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
         return NextResponse.json({ error: String(err) }, { status: 500 });
     }
 }

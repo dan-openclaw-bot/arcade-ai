@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase';
+import { getAuthClient, getApiKey, getProviderForModel } from '@/lib/auth';
 import { generateVideo } from '@/lib/gemini';
 import { generateSoraVideo } from '@/lib/openai';
 import { VIDEO_MODELS } from '@/lib/types';
@@ -9,9 +9,9 @@ function isSoraModel(model: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
-    const supabase = createServerSupabaseClient();
-
     try {
+        const { user, supabase } = await getAuthClient();
+
         const body = await req.json();
         const {
             project_id,
@@ -28,6 +28,13 @@ export async function POST(req: NextRequest) {
 
         if (!project_id || !prompt || !model) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        }
+
+        // Get API key for the right provider
+        const provider = getProviderForModel(model);
+        const apiKey = getApiKey(req, provider, user.id);
+        if (!apiKey) {
+            return NextResponse.json({ error: `${provider === 'openai' ? 'OpenAI' : 'Google'} API key required. Set it in Settings.` }, { status: 400 });
         }
 
         const modelInfo = VIDEO_MODELS.find((m) => m.id === model);
@@ -75,7 +82,6 @@ export async function POST(req: NextRequest) {
         try {
             if (isSoraModel(model)) {
                 // ---- SORA 2 / SORA 2 PRO ----
-                // Download reference image to base64 if provided
                 let refImageBase64: string | undefined;
                 if (reference_image_url) {
                     try {
@@ -93,6 +99,7 @@ export async function POST(req: NextRequest) {
                     aspect_ratio,
                     duration_seconds,
                     refImageBase64,
+                    apiKey,
                 );
 
                 // Store video ID in metadata for polling
@@ -114,6 +121,7 @@ export async function POST(req: NextRequest) {
                     aspect_ratio,
                     duration_seconds,
                     reference_image_url,
+                    apiKey,
                 );
 
                 // Store operation name in metadata for polling
@@ -136,6 +144,9 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: String(genError) }, { status: 500 });
         }
     } catch (err: unknown) {
+        if (String(err).includes('Unauthorized')) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
         return NextResponse.json({ error: String(err) }, { status: 500 });
     }
 }

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { IMAGE_MODELS, VIDEO_MODELS, AspectRatio, GenerateImageRequest, GenerateVideoRequest } from '@/lib/types';
+import MissingKeyModal from '@/components/MissingKeyModal';
 
 type Tab = 'video' | 'image';
 
@@ -207,6 +208,9 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
     const selectedPreprompt = preprompts.find((p) => p.id === selectedPrepromptId);
     const selectedActor = actors.find((a) => a.id === selectedActorId);
 
+    // Missing key modal state
+    const [missingKeyProvider, setMissingKeyProvider] = useState<'openai' | 'google' | null>(null);
+
     // Load total spent from localStorage
     useEffect(() => {
         const saved = localStorage.getItem('arcade_total_spent');
@@ -242,6 +246,16 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
     async function handleGenerate() {
         if (!prompt.trim()) return;
         setError(null);
+
+        // Check if the required API key is available
+        const currentModel = tab === 'image' ? imageModel : videoModel;
+        const provider = currentModel.startsWith('sora-') ? 'openai' : 'google';
+        const storageKey = provider === 'openai' ? 'openai_key' : 'google_key';
+        const hasKey = !!localStorage.getItem(storageKey);
+        if (!hasKey) {
+            setMissingKeyProvider(provider);
+            return;
+        }
 
         // Capture current values before resetting
         const currentPrompt = prompt.trim();
@@ -289,8 +303,13 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                         preprompt_id: selectedPrepromptId || undefined,
                         actor_id: selectedActorId || undefined,
                     };
+                    const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+                    const openaiKey = localStorage.getItem('openai_key');
+                    const googleKey = localStorage.getItem('google_key');
+                    if (openaiKey) apiHeaders['x-openai-key'] = openaiKey;
+                    if (googleKey) apiHeaders['x-google-key'] = googleKey;
                     const res = await fetch('/api/generate/image', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+                        method: 'POST', headers: apiHeaders, body: JSON.stringify(body),
                     });
                     if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Generation failed'); }
                     // Track cost
@@ -322,8 +341,13 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                         preprompt_id: selectedPrepromptId || undefined,
                         actor_id: selectedActorId || undefined,
                     };
+                    const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+                    const openaiKey = localStorage.getItem('openai_key');
+                    const googleKey = localStorage.getItem('google_key');
+                    if (openaiKey) apiHeaders['x-openai-key'] = openaiKey;
+                    if (googleKey) apiHeaders['x-google-key'] = googleKey;
                     const res = await fetch('/api/generate/video', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+                        method: 'POST', headers: apiHeaders, body: JSON.stringify(body),
                     });
                     if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Video generation failed'); }
                     // Track cost (estimate)
@@ -343,6 +367,14 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
     return (
         // Outer: relative container that holds bar + settings popup
         <div className="flex justify-center px-6 pb-6">
+            {/* Missing Key Modal */}
+            {missingKeyProvider && (
+                <MissingKeyModal
+                    provider={missingKeyProvider}
+                    onClose={() => setMissingKeyProvider(null)}
+                    onKeyConfigured={() => { setMissingKeyProvider(null); handleGenerate(); }}
+                />
+            )}
             <div className="relative w-full max-w-2xl">
                 {/* SETTINGS POPUP — positions to the right of the bar */}
                 {showSettings && (

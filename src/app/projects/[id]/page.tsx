@@ -51,8 +51,12 @@ export default function ProjectPage() {
         function startPoll() {
             if (pollRef.current) clearInterval(pollRef.current);
             pollRef.current = setInterval(async () => {
-                // Trigger server-side video poll (updates generating → done)
-                await fetch('/api/generate/video/poll').catch(() => { });
+                const pollHeaders: Record<string, string> = {};
+                const openaiKey = typeof window !== 'undefined' ? localStorage.getItem('openai_key') : null;
+                const googleKey = typeof window !== 'undefined' ? localStorage.getItem('google_key') : null;
+                if (openaiKey) pollHeaders['x-openai-key'] = openaiKey;
+                if (googleKey) pollHeaders['x-google-key'] = googleKey;
+                await fetch('/api/generate/video/poll', { headers: pollHeaders }).catch(() => { });
                 const data = await loadGenerations();
                 const stillGenerating = data.some((g) => g.status === 'generating' || g.status === 'pending');
                 if (!stillGenerating && pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }

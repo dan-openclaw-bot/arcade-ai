@@ -15,6 +15,7 @@ import {
     Edit2,
     Trash2,
     Menu,
+    Settings,
 } from 'lucide-react';
 import { Project, Folder as FolderType } from '@/lib/types';
 
@@ -232,6 +233,14 @@ export default function Sidebar() {
                 >
                     <FileText className="w-3.5 h-3.5 shrink-0" />
                     {!collapsed && 'Pre-prompts'}
+                </Link>
+                <Link
+                    href="/settings"
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors ${pathname === '/settings' ? 'bg-gray-100 text-gray-900 font-medium' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'} ${collapsed ? 'justify-center' : ''}`}
+                    title="Settings"
+                >
+                    <Settings className="w-3.5 h-3.5 shrink-0" />
+                    {!collapsed && 'Settings'}
                 </Link>
             </div>
         </div>

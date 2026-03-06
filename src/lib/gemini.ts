@@ -1,8 +1,13 @@
 import { GoogleGenAI } from '@google/genai';
 
-const apiKey = process.env.GEMINI_API_KEY!;
+const defaultApiKey = process.env.GEMINI_API_KEY!;
 
-export const genai = new GoogleGenAI({ apiKey });
+export const genai = new GoogleGenAI({ apiKey: defaultApiKey });
+
+function getGenAI(apiKey?: string): GoogleGenAI {
+    if (apiKey) return new GoogleGenAI({ apiKey });
+    return genai;
+}
 
 /**
  * Generate images using Imagen or Gemini models
@@ -16,6 +21,7 @@ export async function generateImages(
     referenceImageUrl?: string,
     qualitySuffix?: string,
     negativePrompt?: string,
+    apiKey?: string,
 ): Promise<{ base64: string; mimeType: string }[]> {
     const aspectRatioMap: Record<string, string> = {
         '1:1': '1:1',
@@ -56,8 +62,9 @@ export async function generateImages(
         }
 
         const actualCount = Math.min(count, 4);
+        const ai = getGenAI(apiKey);
         const generatePromises = Array.from({ length: actualCount }, () =>
-            genai.models.generateContent({
+            ai.models.generateContent({
                 model,
                 contents,
                 config: {
@@ -122,7 +129,7 @@ export async function generateImages(
 
     const actualCount = Math.min(count, 4);
     const generatePromises = Array.from({ length: actualCount }, () =>
-        genai.models.generateImages({
+        getGenAI(apiKey).models.generateImages({
             model,
             prompt: finalPrompt,
             config,
@@ -164,7 +171,8 @@ export async function generateVideo(
     model: string,
     aspectRatio: string = '9:16',
     durationSeconds: number = 8,
-    referenceImageBase64?: string
+    referenceImageBase64?: string,
+    apiKey?: string,
 ): Promise<{ operationName: string }> {
     const config: Record<string, unknown> = {
         aspectRatio,
@@ -182,7 +190,7 @@ export async function generateVideo(
         ];
     }
 
-    const operation = await genai.models.generateVideos({
+    const operation = await getGenAI(apiKey).models.generateVideos({
         model,
         prompt,
         config,
@@ -198,10 +206,11 @@ export async function generateVideo(
  * Poll video generation operation
  */
 export async function pollVideoOperation(
-    operationName: string
+    operationName: string,
+    apiKey?: string,
 ): Promise<{ done: boolean; videoBase64?: string }> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const op = await (genai.operations as any).getVideosOperation({
+    const op = await (getGenAI(apiKey).operations as any).getVideosOperation({
         operation: { name: operationName },
     });
 

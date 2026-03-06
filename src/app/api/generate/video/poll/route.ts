@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes to allow for downloading and uploading 10MB+ video buffers
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { pollVideoOperation } from '@/lib/gemini';
 import { pollSoraVideo } from '@/lib/openai';
@@ -9,10 +9,15 @@ import { pollSoraVideo } from '@/lib/openai';
 /**
  * GET /api/generate/video/poll
  * Called periodically to check and update status of generating videos.
- * Polls all 'generating' video records, checks their provider, and updates status/media_url.
+ * Uses service role client (bypasses RLS) since it needs to poll all users' videos.
+ * API keys come from request headers.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
     const supabase = createServerSupabaseClient();
+
+    // Get API keys from headers (user's own keys)
+    const openaiKey = req.headers.get('x-openai-key') || process.env.OPENAI_API_KEY || undefined;
+    const googleKey = req.headers.get('x-google-key') || process.env.GEMINI_API_KEY || undefined;
 
     // Find all generating videos
     const { data: generatingVideos, error } = await supabase
@@ -33,7 +38,7 @@ export async function GET() {
         try {
             if (metadata.provider === 'openai' && metadata.sora_video_id) {
                 // ---- SORA ----
-                const result = await pollSoraVideo(metadata.sora_video_id);
+                const result = await pollSoraVideo(metadata.sora_video_id, openaiKey);
                 if (result.done && result.videoBase64) {
                     // Upload video to Supabase storage
                     const buffer = Buffer.from(result.videoBase64, 'base64');
@@ -66,11 +71,10 @@ export async function GET() {
                         .update({ status: 'error', error_message: 'Video completed but no data', updated_at: new Date().toISOString() })
                         .eq('id', gen.id);
                 }
-                // else: still generating, do nothing
 
             } else if (metadata.operation_name) {
                 // ---- VEO ----
-                const result = await pollVideoOperation(metadata.operation_name);
+                const result = await pollVideoOperation(metadata.operation_name, googleKey);
                 if (result.done && result.videoBase64) {
                     const buffer = Buffer.from(result.videoBase64, 'base64');
                     const fileName = `video_${gen.id}_${Date.now()}.mp4`;
@@ -99,7 +103,6 @@ export async function GET() {
             }
         } catch (e) {
             console.error(`Error polling video ${gen.id}:`, e);
-            // Don't update status on transient errors
         }
     }
 

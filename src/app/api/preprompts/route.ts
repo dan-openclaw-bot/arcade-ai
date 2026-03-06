@@ -1,31 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase';
+import { getAuthClient } from '@/lib/auth';
 
 export async function GET() {
-    const supabase = createServerSupabaseClient();
-    const { data, error } = await supabase
-        .from('preprompts')
-        .select('*')
-        .order('created_at', { ascending: false });
+    try {
+        const { supabase } = await getAuthClient();
+        const { data, error } = await supabase
+            .from('preprompts')
+            .select('*')
+            .order('created_at', { ascending: false });
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json(data);
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json(data);
+    } catch {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 }
 
 export async function POST(req: NextRequest) {
-    const supabase = createServerSupabaseClient();
-    const body = await req.json();
+    try {
+        const { supabase } = await getAuthClient();
+        const body = await req.json();
 
-    const { data, error } = await supabase
-        .from('preprompts')
-        .insert({
-            name: body.name,
-            content: body.content,
-            type: body.type || 'both',
-        })
-        .select()
-        .single();
+        const { data, error } = await supabase
+            .from('preprompts')
+            .insert({
+                name: body.name,
+                content: body.content,
+                type: body.type || 'both',
+            })
+            .select()
+            .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json(data, { status: 201 });
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json(data, { status: 201 });
+    } catch {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 }
