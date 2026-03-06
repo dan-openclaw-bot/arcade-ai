@@ -65,27 +65,27 @@ export default function MissingKeyModal({ provider, onClose, onKeyConfigured }: 
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-            <div className="w-full max-w-md bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-6 mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="w-full max-w-md bg-white border border-gray-200 rounded-2xl p-6 mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
                 {/* Header */}
                 <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-violet-500/10">
-                            <KeyRound size={20} className="text-violet-400" />
+                        <div className="p-2 rounded-xl bg-violet-100">
+                            <KeyRound size={20} className="text-violet-600" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-semibold text-white">Clé {info.label} requise</h2>
+                            <h2 className="text-lg font-semibold text-gray-900">Clé {info.label} requise</h2>
                             <p className="text-xs text-gray-500">Pour utiliser {info.models}</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-1 rounded-lg hover:bg-[#333] transition-colors">
-                        <X size={18} className="text-gray-500" />
+                    <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 transition-colors">
+                        <X size={18} className="text-gray-400" />
                     </button>
                 </div>
 
                 {/* Description */}
-                <p className="text-sm text-gray-400 mb-4">
+                <p className="text-sm text-gray-600 mb-4">
                     Entrez votre clé API {info.label} pour commencer à générer.
-                    Votre clé est stockée <strong className="text-gray-300">uniquement dans votre navigateur</strong>.
+                    Votre clé est stockée <strong className="text-gray-900 font-medium">uniquement dans votre navigateur</strong>.
                 </p>
 
                 {/* Input */}
@@ -96,13 +96,13 @@ export default function MissingKeyModal({ provider, onClose, onKeyConfigured }: 
                         onChange={(e) => { setKey(e.target.value); setStatus('idle'); }}
                         placeholder={info.placeholder}
                         autoFocus
-                        className="w-full px-4 py-3 rounded-xl bg-[#111] border border-[#333]
-                                   text-white placeholder-gray-600 focus:outline-none focus:border-violet-500
+                        className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200
+                                   text-gray-900 placeholder-gray-400 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500
                                    transition-colors text-sm pr-10"
                     />
                     <button
                         onClick={() => setShowKey(!showKey)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
                         {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -140,7 +140,7 @@ export default function MissingKeyModal({ provider, onClose, onKeyConfigured }: 
                     href={info.getUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 text-xs text-gray-500 hover:text-violet-400 transition-colors"
+                    className="flex items-center justify-center gap-2 text-xs text-gray-500 hover:text-violet-600 font-medium transition-colors"
                 >
                     <ExternalLink size={12} />
                     Obtenir une clé {info.label}

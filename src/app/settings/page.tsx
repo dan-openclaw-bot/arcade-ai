@@ -93,18 +93,18 @@ export default function SettingsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#0e0e0e] text-white">
+        <div className="min-h-screen bg-gray-50 text-gray-900">
             <div className="max-w-2xl mx-auto px-6 py-8">
                 {/* Header */}
                 <div className="flex items-center gap-3 mb-8">
-                    <button onClick={() => router.back()} className="p-2 rounded-lg hover:bg-[#222] transition-colors">
-                        <ArrowLeft size={20} className="text-gray-400" />
+                    <button onClick={() => router.back()} className="p-2 rounded-lg hover:bg-gray-200 transition-colors">
+                        <ArrowLeft size={20} className="text-gray-600" />
                     </button>
                     <h1 className="text-2xl font-bold">Paramètres</h1>
                 </div>
 
                 {/* Account */}
-                <section className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-6 mb-6">
+                <section className="bg-white border border-gray-200 shadow-sm rounded-2xl p-6 mb-6">
                     <h2 className="text-lg font-semibold mb-4">Mon compte</h2>
                     <div className="flex items-center gap-4">
                         {user?.user_metadata?.avatar_url ? (
@@ -120,7 +120,7 @@ export default function SettingsPage() {
                         </div>
                         <button
                             onClick={handleLogout}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#222] hover:bg-[#333] text-gray-400 hover:text-red-400 transition-all text-sm"
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-red-500 transition-all text-sm"
                         >
                             <LogOut size={16} /> Déconnexion
                         </button>
@@ -128,7 +128,7 @@ export default function SettingsPage() {
                 </section>
 
                 {/* API Keys */}
-                <section className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-6">
+                <section className="bg-white border border-gray-200 shadow-sm rounded-2xl p-6">
                     <h2 className="text-lg font-semibold mb-2">Clés API</h2>
                     <p className="text-sm text-gray-500 mb-6">
                         Vos clés sont stockées uniquement dans votre navigateur. Elles ne sont jamais envoyées à nos serveurs.
@@ -163,13 +163,13 @@ export default function SettingsPage() {
                                             value={keys[config.storageKey] || ''}
                                             onChange={(e) => handleSave(config.storageKey, e.target.value)}
                                             placeholder={config.placeholder}
-                                            className="w-full px-4 py-2.5 rounded-xl bg-[#111] border border-[#333]
-                                                       text-white placeholder-gray-600 focus:outline-none focus:border-violet-500
+                                            className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200
+                                                       text-gray-900 placeholder-gray-400 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500
                                                        transition-colors text-sm pr-10"
                                         />
                                         <button
                                             onClick={() => setVisibility((prev) => ({ ...prev, [config.storageKey]: !prev[config.storageKey] }))}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                                         >
                                             {visibility[config.storageKey] ? <EyeOff size={16} /> : <Eye size={16} />}
                                         </button>
@@ -177,7 +177,7 @@ export default function SettingsPage() {
                                     <button
                                         onClick={() => handleTest(config)}
                                         disabled={!keys[config.storageKey] || testing[config.storageKey]}
-                                        className="px-4 py-2 rounded-xl bg-[#222] hover:bg-[#333] text-sm text-gray-300
+                                        className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-sm text-gray-700 font-medium
                                                    disabled:opacity-30 disabled:cursor-not-allowed transition-colors
                                                    flex items-center gap-1"
                                     >

@@ -49,19 +49,19 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#0e0e0e] flex items-center justify-center p-4">
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
             <div className="w-full max-w-md">
                 {/* Logo */}
                 <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-white tracking-tight">
-                        Arcade <span className="text-violet-400">AI</span>
+                    <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+                        Arcade <span className="text-violet-600">AI</span>
                     </h1>
                     <p className="text-gray-500 mt-2 text-sm">Studio créatif propulsé par l&apos;IA</p>
                 </div>
 
                 {/* Card */}
-                <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-8">
-                    <h2 className="text-xl font-semibold text-white mb-6">
+                <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-8">
+                    <h2 className="text-xl font-semibold text-gray-900 mb-6">
                         {mode === 'login' ? 'Se connecter' : 'Créer un compte'}
                     </h2>
 
@@ -70,8 +70,8 @@ export default function LoginPage() {
                         onClick={handleGoogle}
                         disabled={loading}
                         className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl
-                                   bg-white text-gray-800 font-medium hover:bg-gray-100
-                                   transition-all duration-200 disabled:opacity-50 mb-6"
+                                   bg-white border border-gray-200 text-gray-800 font-medium hover:bg-gray-50
+                                   transition-all duration-200 disabled:opacity-50 mb-6 shadow-sm"
                     >
                         <svg width="18" height="18" viewBox="0 0 24 24">
                             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
@@ -85,38 +85,38 @@ export default function LoginPage() {
                     {/* Divider */}
                     <div className="relative mb-6">
                         <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-[#333]"></div>
+                            <div className="w-full border-t border-gray-200"></div>
                         </div>
                         <div className="relative flex justify-center text-xs">
-                            <span className="bg-[#1a1a1a] px-4 text-gray-500">ou</span>
+                            <span className="bg-white px-4 text-gray-500">ou</span>
                         </div>
                     </div>
 
                     {/* Email Form */}
                     <form onSubmit={handleEmail} className="space-y-4">
                         <div>
-                            <label className="block text-sm text-gray-400 mb-1.5">Email</label>
+                            <label className="block text-sm text-gray-700 mb-1.5 font-medium">Email</label>
                             <input
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
-                                className="w-full px-4 py-3 rounded-xl bg-[#111] border border-[#333]
-                                           text-white placeholder-gray-600 focus:outline-none focus:border-violet-500
+                                className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200
+                                           text-gray-900 placeholder-gray-400 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500
                                            transition-colors"
                                 placeholder="ton@email.com"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm text-gray-400 mb-1.5">Mot de passe</label>
+                            <label className="block text-sm text-gray-700 mb-1.5 font-medium">Mot de passe</label>
                             <input
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
                                 minLength={6}
-                                className="w-full px-4 py-3 rounded-xl bg-[#111] border border-[#333]
-                                           text-white placeholder-gray-600 focus:outline-none focus:border-violet-500
+                                className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200
+                                           text-gray-900 placeholder-gray-400 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500
                                            transition-colors"
                                 placeholder="••••••••"
                             />
@@ -141,16 +141,16 @@ export default function LoginPage() {
                     </form>
 
                     {/* Toggle */}
-                    <p className="text-center text-sm text-gray-500 mt-6">
+                    <p className="text-center text-sm text-gray-600 mt-6">
                         {mode === 'login' ? (
                             <>Pas encore de compte ?{' '}
-                                <button onClick={() => setMode('signup')} className="text-violet-400 hover:text-violet-300">
+                                <button onClick={() => setMode('signup')} className="text-violet-600 hover:text-violet-700 font-medium">
                                     Créer un compte
                                 </button>
                             </>
                         ) : (
                             <>Déjà un compte ?{' '}
-                                <button onClick={() => setMode('login')} className="text-violet-400 hover:text-violet-300">
+                                <button onClick={() => setMode('login')} className="text-violet-600 hover:text-violet-700 font-medium">
                                     Se connecter
                                 </button>
                             </>
