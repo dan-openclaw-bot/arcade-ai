@@ -308,7 +308,8 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                         model: currentImageModel,
                         aspect_ratio: currentImageAspect,
                         count: currentCount,
-                        reference_image_url: refImageUrl,
+                        // Actor image is used as reference if no explicit refImage
+                        reference_image_url: refImageUrl || (selectedActorId ? actors.find((a) => a.id === selectedActorId)?.image_url : undefined),
 
                         preprompt_id: selectedPrepromptId || undefined,
                         actor_id: selectedActorId || undefined,
