@@ -24,7 +24,7 @@ export async function getAuthClient(req?: NextRequest) {
  * Check if a user is the admin
  */
 export function isAdmin(userId: string): boolean {
-    const adminId = process.env.ADMIN_USER_ID;
+    const adminId = process.env.ADMIN_USER_ID?.trim();
     return !!adminId && userId === adminId;
 }
 
@@ -40,8 +40,8 @@ export function getApiKey(
 ): string | null {
     // Admin always uses .env keys
     if (isAdmin(userId)) {
-        if (provider === 'openai') return process.env.OPENAI_API_KEY || null;
-        if (provider === 'google') return process.env.GEMINI_API_KEY || null;
+        if (provider === 'openai') return process.env.OPENAI_API_KEY?.trim() || null;
+        if (provider === 'google') return process.env.GEMINI_API_KEY?.trim() || null;
         return null;
     }
 
