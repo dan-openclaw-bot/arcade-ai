@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Generation } from '@/lib/types';
-import { Download, MoreHorizontal, Pencil, Clapperboard, AlertCircle, Check, User } from 'lucide-react';
+import { Download, MoreHorizontal, Pencil, Clapperboard, AlertCircle, Check, User, Trash2 } from 'lucide-react';
 import { IMAGE_MODELS, VIDEO_MODELS } from '@/lib/types';
 
 interface GenerationCardProps {
@@ -94,10 +94,23 @@ export default function GenerationCard({ generation, onClick, onDeleted, isSelec
 
             {isError && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-3" style={{ background: '#3a3a3a' }}>
-                    <AlertCircle className="w-6 h-6 text-gray-500" />
+                    <button
+                        onClick={handleDelete}
+                        disabled={deleting}
+                        className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/40 hover:bg-black/80 transition-colors z-10 group-hover:opacity-100 opacity-50"
+                        title="Supprimer cette erreur"
+                    >
+                        {deleting ? <div className="w-4 h-4 rounded-full border-2 border-red-400 border-t-transparent animate-spin" /> : <Trash2 className="w-4 h-4 text-red-400" />}
+                    </button>
+                    <AlertCircle className="w-6 h-6 text-gray-500 mb-1" />
                     <p className="text-xs text-gray-400 text-center leading-relaxed">
-                        An error has occurred. Used credits were not counted. Please contact support for further information.
+                        Une erreur est survenue. Aucun crédit n'a été décompté.
                     </p>
+                    {generation.error_message && (
+                        <p className="text-[10px] text-gray-500 text-center truncate w-full px-2" title={generation.error_message}>
+                            {generation.error_message}
+                        </p>
+                    )}
                 </div>
             )}
 

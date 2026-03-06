@@ -183,11 +183,11 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
     const [totalSpent, setTotalSpent] = useState(0);
 
     // Image settings
-    const [imageModel, setImageModel] = useState(IMAGE_MODELS[1].id); // Nano Banana Pro
+    const [imageModel, setImageModel] = useState('gemini-3.1-flash-image-preview'); // Nano Banana 2
     const [imageAspect, setImageAspect] = useState<AspectRatio>('1:1');
 
     // Video settings
-    const [videoModel, setVideoModel] = useState(VIDEO_MODELS[0].id); // Veo 2
+    const [videoModel, setVideoModel] = useState('sora-2-pro'); // Sora 2 Pro
     const [videoAspect, setVideoAspect] = useState<AspectRatio>('9:16');
     const [videoDuration, setVideoDuration] = useState(12);
     const [videoResolution, setVideoResolution] = useState('1080p');
@@ -263,6 +263,8 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
         setPrompt('');
         setRefImageFile(null);
         setRefImagePreview(null);
+
+        onGenerationStarted(); // Trigger UI polling instantly
 
         // Fire and forget — the generation grid polls for status independently
         (async () => {
@@ -360,7 +362,6 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                     if (vidModel?.pricePerSecond) addSpent(vidModel.pricePerSecond * currentVideoDuration * currentCount);
                 }
 
-                onGenerationStarted();
             } catch (e: unknown) {
                 setError(e instanceof Error ? e.message.replace('Error: ApiError: ', '') : String(e));
             }
