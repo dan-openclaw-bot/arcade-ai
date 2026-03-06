@@ -41,7 +41,7 @@ export default function GenerationCard({ generation, onClick, onDeleted, isSelec
         let ext = 'jpg';
         if (generation.type === 'video') ext = 'mp4';
         else if (generation.output_url.toLowerCase().endsWith('.png')) ext = 'png';
-        a.download = `arcade-${generation.id}.${ext}`;
+        a.download = `aura-${generation.id}.${ext}`;
         a.click();
         URL.revokeObjectURL(url);
     }

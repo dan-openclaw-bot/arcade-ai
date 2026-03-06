@@ -120,7 +120,7 @@ export default function ProjectPage() {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `arcade-${gen.id}.${gen.type === 'video' ? 'mp4' : 'jpg'}`;
+            a.download = `aura-${gen.id}.${gen.type === 'video' ? 'mp4' : 'jpg'}`;
             a.click();
             URL.revokeObjectURL(url);
             // Small delay between downloads

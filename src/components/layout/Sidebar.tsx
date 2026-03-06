@@ -102,8 +102,11 @@ export default function Sidebar() {
             {/* Header with collapse toggle */}
             <div className="flex items-center justify-between px-3 py-3 border-b border-gray-100" style={{ minHeight: 49 }}>
                 {!collapsed && (
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className="font-semibold text-gray-900 text-sm truncate">Aide Senior Arcade</span>
+                    <div className="flex items-center gap-2 px-1">
+                        <div className="w-6 h-6 rounded bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shrink-0">
+                            <span className="text-white text-[10px] font-bold">A</span>
+                        </div>
+                        <span className="font-semibold text-gray-900 text-sm truncate">Aura AI</span>
                     </div>
                 )}
                 <button

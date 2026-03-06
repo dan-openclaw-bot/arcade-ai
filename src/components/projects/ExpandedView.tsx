@@ -40,7 +40,7 @@ export default function ExpandedView({ generation, allGenerations, onClose, onNa
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `arcade-${generation.id}.${generation.type === 'video' ? 'mp4' : 'jpg'}`;
+        a.download = `aura-${generation.id}.${generation.type === 'video' ? 'mp4' : 'jpg'}`;
         a.click();
         URL.revokeObjectURL(url);
     }

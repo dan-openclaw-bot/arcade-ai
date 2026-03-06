@@ -5,8 +5,8 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Arcade AI — Studio créatif',
-  description: 'Générez des photos et vidéos avec l\'IA de Google',
+  title: 'Aura AI — Studio Créatif Gratuit',
+  description: 'Générez des photos et vidéos avec l\'IA 100% gratuitement.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

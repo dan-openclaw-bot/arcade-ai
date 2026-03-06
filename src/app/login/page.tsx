@@ -53,9 +53,9 @@ export default function LoginPage() {
             <div className="w-full max-w-md">
                 {/* Logo */}
                 <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
-                        Arcade <span className="text-violet-600">AI</span>
-                    </h1>
+                    <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+                        Aura <span className="text-violet-600">AI</span>
+                    </h2>
                     <p className="text-gray-500 mt-2 text-sm">Studio créatif propulsé par l&apos;IA</p>
                 </div>
 

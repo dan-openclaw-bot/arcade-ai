@@ -9,11 +9,12 @@ export async function middleware(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
 
     const isLoginPage = request.nextUrl.pathname === '/login';
+    const isHomePage = request.nextUrl.pathname === '/';
     const isAuthCallback = request.nextUrl.pathname.startsWith('/auth/callback');
     const isApiRoute = request.nextUrl.pathname.startsWith('/api/');
 
-    // Allow API routes, auth callback, and login page through
-    if (isApiRoute || isAuthCallback) {
+    // Allow API routes, auth callback, login, and home page through
+    if (isApiRoute || isAuthCallback || isHomePage) {
         return response;
     }
 
