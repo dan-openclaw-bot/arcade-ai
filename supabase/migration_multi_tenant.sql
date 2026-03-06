@@ -13,11 +13,11 @@ ALTER TABLE folders ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(
 
 -- Step 2: Migrate ALL existing data to admin user
 -- ⚠️ REPLACE THIS UUID with your actual admin user_id from Supabase Auth
-UPDATE projects SET user_id = 'YOUR-ADMIN-UUID-HERE' WHERE user_id IS NULL;
-UPDATE generations SET user_id = 'YOUR-ADMIN-UUID-HERE' WHERE user_id IS NULL;
-UPDATE actors SET user_id = 'YOUR-ADMIN-UUID-HERE' WHERE user_id IS NULL;
-UPDATE preprompts SET user_id = 'YOUR-ADMIN-UUID-HERE' WHERE user_id IS NULL;
-UPDATE folders SET user_id = 'YOUR-ADMIN-UUID-HERE' WHERE user_id IS NULL;
+UPDATE projects SET user_id = 'bef71400-f165-4b9d-9eec-20b6e228247a' WHERE user_id IS NULL;
+UPDATE generations SET user_id = 'bef71400-f165-4b9d-9eec-20b6e228247a' WHERE user_id IS NULL;
+UPDATE actors SET user_id = 'bef71400-f165-4b9d-9eec-20b6e228247a' WHERE user_id IS NULL;
+UPDATE preprompts SET user_id = 'bef71400-f165-4b9d-9eec-20b6e228247a' WHERE user_id IS NULL;
+UPDATE folders SET user_id = 'bef71400-f165-4b9d-9eec-20b6e228247a' WHERE user_id IS NULL;
 
 -- Step 3: Make user_id NOT NULL (now that all rows have a value)
 ALTER TABLE projects ALTER COLUMN user_id SET NOT NULL;

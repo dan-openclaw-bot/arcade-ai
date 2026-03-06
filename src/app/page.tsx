@@ -31,11 +31,11 @@ export default function HomePage() {
   }, [router]);
 
   return (
-    <div className="flex h-screen bg-[#0e0e0e] items-center justify-center">
+    <div className="flex h-screen bg-gray-50 items-center justify-center">
       {loading && (
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" />
-          <p className="text-gray-400 text-sm">Chargement du studio...</p>
+          <div className="w-12 h-12 rounded-full border-2 border-violet-600 border-t-transparent animate-spin" />
+          <p className="text-gray-600 text-sm font-medium">Chargement du studio...</p>
         </div>
       )}
     </div>
