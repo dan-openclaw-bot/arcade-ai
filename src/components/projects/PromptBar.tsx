@@ -182,6 +182,25 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
     const [showSettings, setShowSettings] = useState(false);
     const [totalSpent, setTotalSpent] = useState(0);
 
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    // Auto-resize textarea
+    useEffect(() => {
+        const resetHeight = () => {
+            if (textareaRef.current) {
+                textareaRef.current.style.height = 'auto'; // default row height
+            }
+        };
+        if (!prompt) {
+            resetHeight();
+            return;
+        }
+        if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto';
+            textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+        }
+    }, [prompt, tab]);
+
     // Image settings
     const [imageModel, setImageModel] = useState('gemini-3.1-flash-image-preview'); // Nano Banana 2
     const [imageAspect, setImageAspect] = useState<AspectRatio>('1:1');
@@ -517,13 +536,15 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                     {/* Textarea */}
                     <div className="px-4 pt-3 pb-1">
                         <textarea
+                            ref={textareaRef}
                             value={prompt}
                             onChange={(e) => setPrompt(e.target.value)}
                             onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleGenerate(); }}
                             placeholder={tab === 'image' ? 'Describe image' : 'Describe video'}
                             rows={2}
                             maxLength={5000}
-                            className="w-full bg-transparent text-gray-900 placeholder-gray-400 text-sm resize-none outline-none leading-relaxed"
+                            style={{ maxHeight: '50vh' }}
+                            className="w-full bg-transparent text-gray-900 placeholder-gray-400 text-sm resize-none outline-none leading-relaxed overflow-y-auto"
                         />
                     </div>
 
