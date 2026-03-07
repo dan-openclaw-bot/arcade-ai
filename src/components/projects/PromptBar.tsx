@@ -220,12 +220,12 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
 
     // Preprompt & Actor selection
     const [selectedPrepromptId, setSelectedPrepromptId] = useState<string | null>(null);
-    const [selectedActorId, setSelectedActorId] = useState<string | null>(null);
+    const [selectedActorIds, setSelectedActorIds] = useState<string[]>([]);
     const [showPrepromptPicker, setShowPrepromptPicker] = useState(false);
     const [showActorPicker, setShowActorPicker] = useState(false);
 
     const selectedPreprompt = preprompts.find((p) => p.id === selectedPrepromptId);
-    const selectedActor = actors.find((a) => a.id === selectedActorId);
+    const selectedActors = actors.filter((a) => selectedActorIds.includes(a.id));
 
     // Missing key modal state
     const [missingKeyProvider, setMissingKeyProvider] = useState<'openai' | 'google' | null>(null);
@@ -308,11 +308,14 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                         model: currentImageModel,
                         aspect_ratio: currentImageAspect,
                         count: currentCount,
-                        // Actor image is used as reference if no explicit refImage
-                        reference_image_url: refImageUrl || (selectedActorId ? actors.find((a) => a.id === selectedActorId)?.image_url : undefined),
+                        // Combine uploaded ref image and all selected actor images into an array
+                        reference_image_urls: [
+                            refImageUrl,
+                            ...selectedActorIds.map(id => actors.find((a) => a.id === id)?.image_url)
+                        ].filter(Boolean) as string[],
 
                         preprompt_id: selectedPrepromptId || undefined,
-                        actor_id: selectedActorId || undefined,
+                        actor_id: selectedActorIds.length > 0 ? selectedActorIds[0] : undefined, // Keep first actor ID for DB tracking
                     };
                     const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
                     const openaiKey = localStorage.getItem('openai_key');
@@ -355,10 +358,13 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                         duration_seconds: currentVideoDuration,
                         resolution: currentVideoResolution,
                         count: currentCount,
-                        // Actor image is used as reference for video if no explicit refImage
-                        reference_image_url: refImageUrl || (selectedActorId ? actors.find((a) => a.id === selectedActorId)?.image_url : undefined),
+                        // Combine uploaded ref image and all selected actor images into an array
+                        reference_image_urls: [
+                            refImageUrl,
+                            ...selectedActorIds.map(id => actors.find((a) => a.id === id)?.image_url)
+                        ].filter(Boolean) as string[],
                         preprompt_id: selectedPrepromptId || undefined,
-                        actor_id: selectedActorId || undefined,
+                        actor_id: selectedActorIds.length > 0 ? selectedActorIds[0] : undefined,
                     };
                     const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
                     const openaiKey = localStorage.getItem('openai_key');
@@ -481,11 +487,18 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                             actors.map((a) => (
                                 <button
                                     key={a.id}
-                                    onClick={() => { setSelectedActorId(a.id); setShowActorPicker(false); }}
-                                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-gray-50 flex items-center gap-2.5 ${selectedActorId === a.id ? 'bg-violet-50 text-violet-700 font-medium' : 'text-gray-700'}`}
+                                    onClick={() => {
+                                        setSelectedActorIds(prev => {
+                                            if (prev.includes(a.id)) return prev.filter(id => id !== a.id);
+                                            if (prev.length >= 2) return prev; // Max 2 actors
+                                            return [...prev, a.id];
+                                        });
+                                    }}
+                                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-gray-50 flex items-center gap-2.5 ${selectedActorIds.includes(a.id) ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
                                 >
                                     <img src={a.image_url} alt={a.name} className="w-6 h-6 rounded-full object-cover shrink-0" />
                                     {a.name}
+                                    {selectedActorIds.includes(a.id) && <span className="ml-auto text-blue-600 text-xs font-bold">✓</span>}
                                 </button>
                             ))
                         )}
@@ -550,7 +563,7 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                     </div>
 
                     {/* Chips strip — reference image, preprompt, actor */}
-                    {(refImagePreview || selectedPreprompt || selectedActor) && (
+                    {(refImagePreview || selectedPreprompt || selectedActors.length > 0) && (
                         <div className="flex items-center gap-2 px-4 pb-2 flex-wrap">
                             {/* Reference image chip */}
                             {refImagePreview && (
@@ -582,19 +595,19 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                                     </button>
                                 </div>
                             )}
-                            {/* Actor chip */}
-                            {selectedActor && (
-                                <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1">
-                                    <img src={selectedActor.image_url} alt={selectedActor.name} className="w-5 h-5 rounded-full object-cover shrink-0" />
-                                    <span className="text-xs text-blue-700 font-medium">{selectedActor.name}</span>
+                            {/* Actor chips */}
+                            {selectedActors.map(actor => (
+                                <div key={actor.id} className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1">
+                                    <img src={actor.image_url} alt={actor.name} className="w-5 h-5 rounded-full object-cover shrink-0" />
+                                    <span className="text-xs text-blue-700 font-medium">{actor.name}</span>
                                     <button
-                                        onClick={() => setSelectedActorId(null)}
+                                        onClick={() => setSelectedActorIds(prev => prev.filter(id => id !== actor.id))}
                                         className="text-blue-400 hover:text-blue-700 ml-0.5"
                                     >
                                         <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
                                     </button>
                                 </div>
-                            )}
+                            ))}
                         </div>
                     )}
 
@@ -650,16 +663,18 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
 
                         {/* Actor button */}
                         <button
-                            title="Ajouter un acteur"
+                            title="Ajouter des acteurs (Max 2)"
                             onClick={() => { setShowActorPicker((s) => !s); setShowPrepromptPicker(false); setShowSettings(false); }}
-                            className={`relative p-2 rounded-lg transition-colors ${selectedActorId ? 'text-blue-700 bg-blue-50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
+                            className={`relative p-2 rounded-lg transition-colors ${selectedActorIds.length > 0 ? 'text-blue-700 bg-blue-50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
                         >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                                 <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
                                 <circle cx="12" cy="7" r="4" />
                             </svg>
-                            {selectedActorId && (
-                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 rounded-full border-2 border-white" />
+                            {selectedActorIds.length > 0 && (
+                                <div className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 bg-blue-600 rounded-full border-2 border-white flex items-center justify-center text-[8px] font-bold text-white">
+                                    {selectedActorIds.length}
+                                </div>
                             )}
                         </button>
 

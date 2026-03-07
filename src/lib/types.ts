@@ -191,7 +191,7 @@ export interface GenerateImageRequest {
     count: number;
     preprompt_id?: string;
     actor_id?: string;
-    reference_image_url?: string;
+    reference_image_urls?: string[];
     quality_suffix?: string;
     negative_prompt?: string;
 }
@@ -206,5 +206,5 @@ export interface GenerateVideoRequest {
     count: number;
     preprompt_id?: string;
     actor_id?: string;
-    reference_image_url?: string;
+    reference_image_urls?: string[];
 }

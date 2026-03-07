@@ -18,7 +18,7 @@ export async function generateImages(
     model: string,
     count: number = 1,
     aspectRatio: string = '1:1',
-    referenceImageUrl?: string,
+    referenceImageUrls: string[] = [],
     qualitySuffix?: string,
     negativePrompt?: string,
     apiKey?: string,
@@ -41,24 +41,25 @@ export async function generateImages(
         if (qualitySuffix) enhancedPrompt += `, ${qualitySuffix}`;
         if (negativePrompt) enhancedPrompt += ` (Do NOT include: ${negativePrompt})`;
 
-        // Build multimodal contents: text + optional reference image
+        // Build multimodal contents: text + optional reference images
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let contents: any;
-        if (referenceImageUrl) {
-            // Download the reference image and convert to base64
-            const imgResponse = await fetch(referenceImageUrl);
-            const imgBuffer = Buffer.from(await imgResponse.arrayBuffer());
-            const imgBase64 = imgBuffer.toString('base64');
-            const contentType = imgResponse.headers.get('content-type') || 'image/jpeg';
+        let contents: any[] = [];
+        if (referenceImageUrls && referenceImageUrls.length > 0) {
+            // Download all reference images and convert to base64
+            const imageParts = await Promise.all(
+                referenceImageUrls.map(async (url) => {
+                    const imgResponse = await fetch(url);
+                    const imgBuffer = Buffer.from(await imgResponse.arrayBuffer());
+                    const imgBase64 = imgBuffer.toString('base64');
+                    const contentType = imgResponse.headers.get('content-type') || 'image/jpeg';
+                    return { inlineData: { data: imgBase64, mimeType: contentType } };
+                })
+            );
 
-            enhancedPrompt += '\n\nUse the provided reference image as a style guide for the generated image.';
-
-            contents = [
-                { inlineData: { data: imgBase64, mimeType: contentType } },
-                { text: enhancedPrompt },
-            ];
+            enhancedPrompt += '\n\nUse the provided reference image(s) as a style guide for the generated image.';
+            contents = [...imageParts, { text: enhancedPrompt }];
         } else {
-            contents = enhancedPrompt;
+            contents = [{ text: enhancedPrompt }];
         }
 
         const actualCount = Math.min(count, 4);
@@ -108,22 +109,24 @@ export async function generateImages(
     const negInstructions = negativePrompt ? ` (Do NOT include: ${negativePrompt})` : '';
     const finalPrompt = `${prompt}${suffix}${negInstructions}`;
 
-    // If reference image provided, download and add to config
-    if (referenceImageUrl) {
+    // If reference images provided, download and add to config
+    if (referenceImageUrls && referenceImageUrls.length > 0) {
         try {
-            const imgResponse = await fetch(referenceImageUrl);
-            const imgBuffer = Buffer.from(await imgResponse.arrayBuffer());
-            const imgBase64 = imgBuffer.toString('base64');
-            config.referenceImages = [
-                {
-                    referenceType: 2, // STYLE_REFERENCE
-                    referenceImage: {
-                        imageBytes: imgBase64,
-                    },
-                },
-            ];
+            const referenceImagesConfig = await Promise.all(
+                referenceImageUrls.map(async (url) => {
+                    const imgResponse = await fetch(url);
+                    const imgBuffer = Buffer.from(await imgResponse.arrayBuffer());
+                    return {
+                        referenceType: 2, // STYLE_REFERENCE
+                        referenceImage: {
+                            imageBytes: imgBuffer.toString('base64'),
+                        },
+                    };
+                })
+            );
+            config.referenceImages = referenceImagesConfig;
         } catch (e) {
-            console.error('Failed to download reference image for Imagen:', e);
+            console.error('Failed to download reference images for Imagen:', e);
         }
     }
 

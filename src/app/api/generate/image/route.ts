@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
             count = 1,
             preprompt_id,
             actor_id,
-            reference_image_url,
+            reference_image_urls,
             quality_suffix,
             negative_prompt,
         } = body;
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
         const serviceSupabase = createServerSupabaseClient();
         let images: { base64: string; mimeType: string }[] = [];
         try {
-            images = await generateImages(finalPrompt, model, count, aspect_ratio, reference_image_url, quality_suffix, negative_prompt, googleKey);
+            images = await generateImages(finalPrompt, model, count, aspect_ratio, reference_image_urls || [], quality_suffix, negative_prompt, googleKey);
         } catch (genError: unknown) {
             // Mark all as error
             await supabase
