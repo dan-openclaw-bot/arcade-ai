@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import { Actor } from '@/lib/types';
-import { Plus, Trash2, User, Upload, X } from 'lucide-react';
+import { Plus, Trash2, Pencil, User, Upload, X } from 'lucide-react';
 
 export default function ActorsPage() {
     const [actors, setActors] = useState<Actor[]>([]);
@@ -14,6 +14,7 @@ export default function ActorsPage() {
     const [description, setDescription] = useState('');
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [editingActor, setEditingActor] = useState<Actor | null>(null);
     const fileRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -31,31 +32,68 @@ export default function ActorsPage() {
         reader.readAsDataURL(file);
     }
 
-    async function handleCreate() {
-        if (!name.trim() || !imageFile) return;
+    function openCreateModal() {
+        setEditingActor(null);
+        setName('');
+        setDescription('');
+        setImageFile(null);
+        setImagePreview(null);
+        setShowModal(true);
+    }
+
+    function openEditModal(actor: Actor) {
+        setEditingActor(actor);
+        setName(actor.name);
+        setDescription(actor.description);
+        setImageFile(null); // No new file by default
+        setImagePreview(actor.image_url);
+        setShowModal(true);
+    }
+
+    async function handleSave() {
+        if (!name.trim()) return;
+        // If creating new, file is mandatory. If editing, file is optional.
+        if (!editingActor && !imageFile) return;
+
         setCreating(true);
 
-        // Upload image
-        const fd = new FormData();
-        fd.append('file', imageFile);
-        fd.append('bucket', 'actors');
-        const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
-        const { url } = await upRes.json();
+        // Upload new image if file was selected
+        let url = imagePreview; // Default to existing preview URL
+        if (imageFile) {
+            const fd = new FormData();
+            fd.append('file', imageFile);
+            fd.append('bucket', 'actors');
+            const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
+            const data = await upRes.json();
+            url = data.url;
+        }
 
-        // Create actor
-        const res = await fetch('/api/actors', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, description, image_url: url }),
-        });
-        const actor = await res.json();
-        setActors((prev) => [actor, ...prev]);
+        if (editingActor) {
+            // Update actor
+            const res = await fetch(`/api/actors/${editingActor.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, description, image_url: url }),
+            });
+            const updatedActor = await res.json();
+            setActors(prev => prev.map(a => a.id === updatedActor.id ? updatedActor : a));
+        } else {
+            // Create actor
+            const res = await fetch('/api/actors', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, description, image_url: url }),
+            });
+            const newActor = await res.json();
+            setActors(prev => [newActor, ...prev]);
+        }
 
         // Reset
         setName('');
         setDescription('');
         setImageFile(null);
         setImagePreview(null);
+        setEditingActor(null);
         setShowModal(false);
         setCreating(false);
     }
@@ -75,7 +113,7 @@ export default function ActorsPage() {
                 <div className="flex items-center px-6 py-4 border-b border-gray-200" style={{ background: '#F9FAFB' }}>
                     <h1 className="text-gray-900 font-semibold text-base flex-1">Acteurs</h1>
                     <button
-                        onClick={() => setShowModal(true)}
+                        onClick={openCreateModal}
                         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition-colors"
                     >
                         <Plus className="w-4 h-4" />
@@ -115,10 +153,16 @@ export default function ActorsPage() {
                                                 <User className="w-12 h-12 text-gray-300" />
                                             </div>
                                         )}
-                                        <div className="card-overlay absolute inset-0 bg-black/60 flex items-end p-3">
+                                        <div className="card-overlay absolute inset-0 bg-black/60 flex items-end p-3 gap-2">
+                                            <button
+                                                onClick={() => openEditModal(actor)}
+                                                className="ml-auto p-1.5 rounded-lg bg-black/50 hover:bg-blue-500/70 text-white transition-colors"
+                                            >
+                                                <Pencil className="w-3.5 h-3.5" />
+                                            </button>
                                             <button
                                                 onClick={() => handleDelete(actor.id)}
-                                                className="ml-auto p-1.5 rounded-lg bg-black/50 hover:bg-red-500/70 text-white transition-colors"
+                                                className="p-1.5 rounded-lg bg-black/50 hover:bg-red-500/70 text-white transition-colors"
                                             >
                                                 <Trash2 className="w-3.5 h-3.5" />
                                             </button>
@@ -148,7 +192,7 @@ export default function ActorsPage() {
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="flex items-center justify-between mb-5">
-                            <h2 className="text-gray-900 font-semibold">Nouvel acteur</h2>
+                            <h2 className="text-gray-900 font-semibold">{editingActor ? 'Modifier l\'acteur' : 'Nouvel acteur'}</h2>
                             <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-700">
                                 <X className="w-4 h-4" />
                             </button>
@@ -185,11 +229,11 @@ export default function ActorsPage() {
                         />
 
                         <button
-                            onClick={handleCreate}
-                            disabled={creating || !name.trim() || !imageFile}
+                            onClick={handleSave}
+                            disabled={creating || !name.trim() || (!editingActor && !imageFile)}
                             className="w-full py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                            {creating ? 'Création...' : 'Créer l\'acteur'}
+                            {creating ? 'Enregistrement...' : (editingActor ? 'Enregistrer les modifications' : 'Créer l\'acteur')}
                         </button>
                     </div>
                 </div>
