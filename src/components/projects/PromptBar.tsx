@@ -214,8 +214,7 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
 
 
     // Reference image — used for BOTH image (style reference) and video
-    const [refImageFile, setRefImageFile] = useState<File | null>(null);
-    const [refImagePreview, setRefImagePreview] = useState<string | null>(null);
+    const [refImages, setRefImages] = useState<{ id: string; file: File | null; preview: string; url?: string }[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Preprompt & Actor selection
@@ -239,19 +238,34 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
     // Handle edit reference URL (from ExpandedView "Edit" button)
     useEffect(() => {
         if (!editReferenceUrl) return;
-        // Set the URL as reference image preview directly (no File needed for URL-based refs)
-        setRefImagePreview(editReferenceUrl);
-        setRefImageFile(null); // Will use URL directly instead of file upload
+        // Set the URL as reference image directly
+        setRefImages([{ id: Date.now().toString(), file: null, preview: editReferenceUrl, url: editReferenceUrl }]);
         setTab('image');
         onEditReferenceHandled?.();
     }, [editReferenceUrl, onEditReferenceHandled]);
+
     function handleRefImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setRefImageFile(file);
-        const reader = new FileReader();
-        reader.onload = () => setRefImagePreview(reader.result as string);
-        reader.readAsDataURL(file);
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+
+        // Limit to 2 uploaded images
+        setRefImages((prev) => {
+            const currentFiles = [...prev];
+            const remainingSlots = 2 - currentFiles.length;
+            const newFiles = files.slice(0, remainingSlots);
+
+            const fileObjects = newFiles.map(file => {
+                const preview = URL.createObjectURL(file);
+                return { id: Math.random().toString(36).substring(7), file, preview };
+            });
+
+            return [...currentFiles, ...fileObjects];
+        });
+
+        // Reset input so selecting the same file again triggers onChange
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
     }
 
     function addSpent(amount: number) {
@@ -267,8 +281,7 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
         setError(null);
         // Capture current values before resetting
         const currentPrompt = prompt.trim();
-        const currentRefImageFile = refImageFile;
-        const currentRefImagePreview = refImagePreview; // URL from Edit button or file preview
+        const currentRefImages = [...refImages];
         const currentTab = tab;
         const currentImageModel = imageModel;
         const currentImageAspect = imageAspect;
@@ -280,27 +293,33 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
 
         // Reset UI immediately so the user can queue more generations
         setPrompt('');
-        setRefImageFile(null);
-        setRefImagePreview(null);
+        setRefImages([]);
 
         onGenerationStarted(); // Trigger UI polling instantly
 
         // Fire and forget — the generation grid polls for status independently
         (async () => {
             try {
-                if (currentTab === 'image') {
-                    // Upload ref image if provided, or use existing URL (from Edit)
-                    let refImageUrl: string | undefined;
-                    if (currentRefImageFile) {
+                // Upload any local ref images and collect final URLs
+                const generatedRefUrls = await Promise.all(
+                    currentRefImages.map(async (img) => {
+                        if (img.url) return img.url; // Already an uploaded URL (e.g. from Edit)
+                        if (!img.file) return null;
+
                         const fd = new FormData();
-                        fd.append('file', currentRefImageFile);
+                        fd.append('file', img.file);
                         fd.append('bucket', 'generations');
                         const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
-                        if (upRes.ok) { const { url } = await upRes.json(); refImageUrl = url; }
-                    } else if (currentRefImagePreview && currentRefImagePreview.startsWith('http')) {
-                        // Already a URL (from Edit button)
-                        refImageUrl = currentRefImagePreview;
-                    }
+                        if (upRes.ok) {
+                            const { url } = await upRes.json();
+                            return url;
+                        }
+                        return null;
+                    })
+                );
+                const finalRefUrls = generatedRefUrls.filter(Boolean) as string[];
+
+                if (currentTab === 'image') {
 
                     const body: GenerateImageRequest = {
                         project_id: projectId,
@@ -308,9 +327,9 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                         model: currentImageModel,
                         aspect_ratio: currentImageAspect,
                         count: currentCount,
-                        // Combine uploaded ref image and all selected actor images into an array
+                        // Combine uploaded ref images and all selected actor images into an array
                         reference_image_urls: [
-                            refImageUrl,
+                            ...finalRefUrls,
                             ...selectedActorIds.map(id => actors.find((a) => a.id === id)?.image_url)
                         ].filter(Boolean) as string[],
 
@@ -339,17 +358,6 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                     if (imgModel?.pricePerImage) addSpent(imgModel.pricePerImage * currentCount);
 
                 } else {
-                    // Upload ref image for video
-                    let refImageUrl: string | undefined;
-                    if (currentRefImageFile) {
-                        const fd = new FormData();
-                        fd.append('file', currentRefImageFile);
-                        fd.append('bucket', 'generations');
-                        const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
-                        if (upRes.ok) { const { url } = await upRes.json(); refImageUrl = url; }
-                    } else if (currentRefImagePreview && currentRefImagePreview.startsWith('http')) {
-                        refImageUrl = currentRefImagePreview;
-                    }
                     const body: GenerateVideoRequest = {
                         project_id: projectId,
                         prompt: currentPrompt,
@@ -358,9 +366,9 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                         duration_seconds: currentVideoDuration,
                         resolution: currentVideoResolution,
                         count: currentCount,
-                        // Combine uploaded ref image and all selected actor images into an array
+                        // Combine uploaded ref images and all selected actor images into an array
                         reference_image_urls: [
-                            refImageUrl,
+                            ...finalRefUrls,
                             ...selectedActorIds.map(id => actors.find((a) => a.id === id)?.image_url)
                         ].filter(Boolean) as string[],
                         preprompt_id: selectedPrepromptId || undefined,
@@ -563,23 +571,23 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                     </div>
 
                     {/* Chips strip — reference image, preprompt, actor */}
-                    {(refImagePreview || selectedPreprompt || selectedActors.length > 0) && (
+                    {(refImages.length > 0 || selectedPreprompt || selectedActors.length > 0) && (
                         <div className="flex items-center gap-2 px-4 pb-2 flex-wrap">
-                            {/* Reference image chip */}
-                            {refImagePreview && (
-                                <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1">
-                                    <div className="relative w-7 h-7 rounded overflow-hidden shrink-0">
-                                        <img src={refImagePreview} alt="ref" className="w-full h-full object-cover" />
+                            {/* Reference image chips */}
+                            {refImages.map(img => (
+                                <div key={img.id} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1">
+                                    <div className="relative w-7 h-7 rounded overflow-hidden shrink-0 bg-gray-200">
+                                        <img src={img.preview} alt="ref" className="w-full h-full object-cover" />
                                     </div>
-                                    <span className="text-xs text-gray-500">Ref image</span>
+                                    <span className="text-xs text-gray-500">Ref</span>
                                     <button
-                                        onClick={() => { setRefImageFile(null); setRefImagePreview(null); }}
+                                        onClick={() => setRefImages(prev => prev.filter(r => r.id !== img.id))}
                                         className="text-gray-400 hover:text-gray-700 ml-0.5"
                                     >
                                         <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
                                     </button>
                                 </div>
-                            )}
+                            ))}
                             {/* Preprompt chip */}
                             {selectedPreprompt && (
                                 <div className="flex items-center gap-1.5 bg-violet-50 border border-violet-200 rounded-lg px-2.5 py-1">
@@ -623,23 +631,26 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
 
                         {/* Reference image button */}
                         <button
-                            title={tab === 'image' ? 'Style reference image' : 'Video reference image'}
+                            title={tab === 'image' ? `Ajouter références (Max 2)` : `Video reference image`}
                             onClick={() => { fileInputRef.current?.click(); setShowPrepromptPicker(false); setShowActorPicker(false); }}
-                            className={`relative p-2 rounded-lg transition-colors ${refImageFile ? 'text-gray-900 bg-gray-100' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
+                            className={`relative p-2 rounded-lg transition-colors ${refImages.length > 0 ? 'text-gray-900 bg-gray-100' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
                         >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                                 <rect x="3" y="3" width="18" height="18" rx="2" />
                                 <circle cx="8.5" cy="8.5" r="1.5" />
                                 <path d="m21 15-5-5L5 21" />
                             </svg>
-                            {refImageFile && (
-                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-gray-900 rounded-full border-2 border-white" />
+                            {refImages.length > 0 && (
+                                <div className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 bg-gray-900 rounded-full border-2 border-white flex items-center justify-center text-[8px] font-bold text-white">
+                                    {refImages.length}
+                                </div>
                             )}
                         </button>
                         <input
                             ref={fileInputRef}
                             type="file"
                             accept="image/*"
+                            multiple
                             className="hidden"
                             onChange={handleRefImageChange}
                         />
