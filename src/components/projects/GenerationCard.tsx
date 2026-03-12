@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Generation } from '@/lib/types';
-import { Download, MoreHorizontal, Pencil, Clapperboard, AlertCircle, Check, User, Trash2 } from 'lucide-react';
+import { Download, MoreHorizontal, Pencil, Clapperboard, AlertCircle, Check, User, Trash2, Link } from 'lucide-react';
 import { IMAGE_MODELS, VIDEO_MODELS } from '@/lib/types';
 
 interface GenerationCardProps {
@@ -17,6 +17,7 @@ interface GenerationCardProps {
 export default function GenerationCard({ generation, onClick, onDeleted, isSelected, onToggleSelect, onEdit }: GenerationCardProps) {
     const [deleting, setDeleting] = useState(false);
     const [actorSaved, setActorSaved] = useState(false);
+    const [copied, setCopied] = useState(false);
     const isGenerating = generation.status === 'generating' || generation.status === 'pending';
     const isError = generation.status === 'error';
     const isDone = generation.status === 'done';
@@ -49,6 +50,18 @@ export default function GenerationCard({ generation, onClick, onDeleted, isSelec
     function handleSelect(e: React.MouseEvent) {
         e.stopPropagation();
         onToggleSelect?.(generation.id);
+    }
+
+    async function handleCopyLink(e: React.MouseEvent) {
+        e.stopPropagation();
+        if (!generation.output_url) return;
+        try {
+            await navigator.clipboard.writeText(generation.output_url);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            console.error("Failed to copy link: ", err);
+        }
     }
 
     function handleEdit(e: React.MouseEvent) {
@@ -155,7 +168,10 @@ export default function GenerationCard({ generation, onClick, onDeleted, isSelec
                                         {actorSaved ? <Check className="w-4 h-4 text-green-400" /> : <User className="w-4 h-4" />}
                                     </button>
                                 )}
-                                <button onClick={handleDownload} className="overlay-icon-btn" title="Download">
+                                <button onClick={handleCopyLink} className="overlay-icon-btn" title="Copier le lien">
+                                    {copied ? <Check className="w-4 h-4 text-green-400" /> : <Link className="w-4 h-4" />}
+                                </button>
+                                <button onClick={handleDownload} className="overlay-icon-btn" title="Télécharger">
                                     <Download className="w-4 h-4" />
                                 </button>
                             </div>
