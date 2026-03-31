@@ -2,6 +2,12 @@ import { GoogleGenAI } from '@google/genai';
 
 const defaultApiKey = process.env.GEMINI_API_KEY!;
 
+// Vertex AI config
+const VERTEX_API_KEY = process.env.VERTEX_API_KEY || '';
+const VERTEX_REGIONS = (process.env.VERTEX_REGIONS || 'us-central1,europe-west1,europe-west4,asia-northeast1').split(',');
+const VERTEX_BASE = 'https://aiplatform.googleapis.com/v1/publishers/google/models';
+
+// Direct API client (for users with their own key)
 export const genai = new GoogleGenAI({ apiKey: defaultApiKey });
 
 function getGenAI(apiKey?: string): GoogleGenAI {
@@ -9,10 +15,53 @@ function getGenAI(apiKey?: string): GoogleGenAI {
     return genai;
 }
 
+function shouldUseVertex(userApiKey?: string): boolean {
+    return !userApiKey && !!VERTEX_API_KEY;
+}
+
 /**
- * Generate a SINGLE image using Imagen or Gemini models
- * Returns one base64 image — call in a loop for multiple images
- * This ensures each image is saved immediately before the next starts
+ * Call Vertex AI REST API with region fallback on quota/capacity errors
+ */
+async function vertexRequest(model: string, body: Record<string, unknown>, endpoint: string = 'generateContent'): Promise<Record<string, unknown>> {
+    let lastError: unknown;
+    for (const region of VERTEX_REGIONS) {
+        const url = `${VERTEX_BASE}/${model}:${endpoint}?key=${VERTEX_API_KEY}`;
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                const errMsg = (data as { error?: { message?: string } }).error?.message || `HTTP ${res.status}`;
+                const lower = errMsg.toLowerCase();
+                if (lower.includes('quota') || lower.includes('resource') || lower.includes('capacity') || res.status === 429 || res.status === 503) {
+                    console.warn(`Vertex AI region ${region} overloaded (${res.status}), trying next...`);
+                    lastError = new Error(errMsg);
+                    continue;
+                }
+                throw new Error(errMsg);
+            }
+
+            return data as Record<string, unknown>;
+        } catch (err: unknown) {
+            lastError = err;
+            const msg = String(err).toLowerCase();
+            if (msg.includes('quota') || msg.includes('resource') || msg.includes('capacity') || msg.includes('429') || msg.includes('503')) {
+                console.warn(`Vertex AI region ${region} error, trying next...`);
+                continue;
+            }
+            throw err;
+        }
+    }
+    throw lastError;
+}
+
+/**
+ * Generate a SINGLE image — call in parallel for multiple images
  */
 export async function generateSingleImage(
     prompt: string,
@@ -28,8 +77,7 @@ export async function generateSingleImage(
 }
 
 /**
- * Generate images using Imagen or Gemini models
- * Returns array of base64 image data
+ * Generate images using Imagen or Gemini models via Vertex AI (admin) or direct API (users)
  */
 export async function generateImages(
     prompt: string,
@@ -47,23 +95,19 @@ export async function generateImages(
         '16:9': '16:9',
     };
     const mappedRatio = aspectRatioMap[aspectRatio] || '1:1';
+    const useVertex = shouldUseVertex(apiKey);
 
-    // Gemini multimodal models use generateContent with responseModalities
     if (model.startsWith('gemini-')) {
-        // Build enhanced prompt with quality/negative modifiers
         let enhancedPrompt = prompt;
-        // Add aspect ratio guidance (generateContent has no native aspect ratio param)
         if (aspectRatio === '1:1') enhancedPrompt = `[Square 1:1 format] ${enhancedPrompt}`;
         else if (aspectRatio === '9:16') enhancedPrompt = `[Portrait 9:16 format] ${enhancedPrompt}`;
         else if (aspectRatio === '16:9') enhancedPrompt = `[Landscape 16:9 format] ${enhancedPrompt}`;
         if (qualitySuffix) enhancedPrompt += `, ${qualitySuffix}`;
         if (negativePrompt) enhancedPrompt += ` (Do NOT include: ${negativePrompt})`;
 
-        // Build multimodal contents: text + optional reference images
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let contents: any[] = [];
         if (referenceImageUrls && referenceImageUrls.length > 0) {
-            // Download all reference images and convert to base64
             const imageParts = await Promise.all(
                 referenceImageUrls.map(async (url) => {
                     const imgResponse = await fetch(url);
@@ -73,7 +117,6 @@ export async function generateImages(
                     return { inlineData: { data: imgBase64, mimeType: contentType } };
                 })
             );
-
             enhancedPrompt += '\n\nUse the provided reference image(s) as a style guide for the generated image.';
             contents = [...imageParts, { text: enhancedPrompt }];
         } else {
@@ -81,18 +124,47 @@ export async function generateImages(
         }
 
         const actualCount = Math.min(count, 4);
-        const ai = getGenAI(apiKey);
-        const generatePromises = Array.from({ length: actualCount }, () =>
-            ai.models.generateContent({
-                model,
-                contents,
-                config: {
-                    responseModalities: ['Text', 'Image'],
-                },
-            })
-        );
 
-        const responses = await Promise.all(generatePromises);
+        if (useVertex) {
+            // Vertex AI REST — parallel calls with region fallback per call
+            const body = {
+                contents: [{ role: 'user', parts: contents }],
+                generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+            };
+
+            const responses = await Promise.all(
+                Array.from({ length: actualCount }, () => vertexRequest(model, body))
+            );
+
+            const results: { base64: string; mimeType: string }[] = [];
+            for (const data of responses) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const candidates = (data as any).candidates || [];
+                for (const candidate of candidates) {
+                    for (const part of candidate.content?.parts || []) {
+                        if (part.inlineData?.data && part.inlineData?.mimeType) {
+                            results.push({
+                                base64: part.inlineData.data,
+                                mimeType: part.inlineData.mimeType,
+                            });
+                        }
+                    }
+                }
+            }
+            return results;
+        }
+
+        // Direct API for users with their own key
+        const ai = getGenAI(apiKey);
+        const responses = await Promise.all(
+            Array.from({ length: actualCount }, () =>
+                ai.models.generateContent({
+                    model,
+                    contents,
+                    config: { responseModalities: ['Text', 'Image'] },
+                })
+            )
+        );
 
         const results: { base64: string; mimeType: string }[] = [];
         for (const response of responses) {
@@ -114,20 +186,17 @@ export async function generateImages(
         return results;
     }
 
-    // Imagen models — use generateImages
-    // Imagen 4 via Gemini API often only supports numberOfImages: 1 per request
+    // Imagen models
     const config: Record<string, unknown> = {
         numberOfImages: 1,
         aspectRatio: mappedRatio,
         outputMimeType: 'image/jpeg',
     };
 
-    // Use caller-provided quality suffix and negative prompt, or empty strings
     const suffix = qualitySuffix ? `, ${qualitySuffix}` : '';
     const negInstructions = negativePrompt ? ` (Do NOT include: ${negativePrompt})` : '';
     const finalPrompt = `${prompt}${suffix}${negInstructions}`;
 
-    // If reference images provided, download and add to config
     if (referenceImageUrls && referenceImageUrls.length > 0) {
         try {
             const referenceImagesConfig = await Promise.all(
@@ -135,10 +204,8 @@ export async function generateImages(
                     const imgResponse = await fetch(url);
                     const imgBuffer = Buffer.from(await imgResponse.arrayBuffer());
                     return {
-                        referenceType: 2, // STYLE_REFERENCE
-                        referenceImage: {
-                            imageBytes: imgBuffer.toString('base64'),
-                        },
+                        referenceType: 2,
+                        referenceImage: { imageBytes: imgBuffer.toString('base64') },
                     };
                 })
             );
@@ -149,15 +216,38 @@ export async function generateImages(
     }
 
     const actualCount = Math.min(count, 4);
-    const generatePromises = Array.from({ length: actualCount }, () =>
-        getGenAI(apiKey).models.generateImages({
-            model,
-            prompt: finalPrompt,
-            config,
-        })
-    );
 
-    const responses = await Promise.all(generatePromises);
+    if (useVertex) {
+        // Vertex AI REST for Imagen
+        const body = {
+            instances: [{ prompt: finalPrompt }],
+            parameters: config,
+        };
+
+        const responses = await Promise.all(
+            Array.from({ length: actualCount }, () => vertexRequest(model, body, 'predict'))
+        );
+
+        const results: { base64: string; mimeType: string }[] = [];
+        for (const data of responses) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const predictions = (data as any).predictions || [];
+            for (const pred of predictions) {
+                if (pred.bytesBase64Encoded) {
+                    results.push({ base64: pred.bytesBase64Encoded, mimeType: 'image/jpeg' });
+                }
+            }
+        }
+        if (results.length === 0) throw new Error('No images generated');
+        return results;
+    }
+
+    // Direct API for users
+    const responses = await Promise.all(
+        Array.from({ length: actualCount }, () =>
+            getGenAI(apiKey).models.generateImages({ model, prompt: finalPrompt, config })
+        )
+    );
 
     const results: { base64: string; mimeType: string }[] = [];
     for (const response of responses) {
@@ -176,16 +266,12 @@ export async function generateImages(
         }
     }
 
-    if (results.length === 0) {
-        throw new Error('No images generated');
-    }
-
+    if (results.length === 0) throw new Error('No images generated');
     return results;
 }
 
 /**
  * Generate a video using Veo models
- * Returns the operation object for polling
  */
 export async function generateVideo(
     prompt: string,
@@ -204,20 +290,23 @@ export async function generateVideo(
         config.referenceImages = [
             {
                 referenceType: 'REFERENCE_TYPE_STYLE',
-                referenceImage: {
-                    imageBytes: referenceImageBase64,
-                },
+                referenceImage: { imageBytes: referenceImageBase64 },
             },
         ];
     }
 
-    const operation = await getGenAI(apiKey).models.generateVideos({
-        model,
-        prompt,
-        config,
-    });
+    if (shouldUseVertex(apiKey)) {
+        const body = {
+            instances: [{ prompt }],
+            parameters: config,
+        };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const data = await vertexRequest(model, body, 'predict') as any;
+        const opName = data.name || '';
+        return { operationName: opName };
+    }
 
-    // operation.name may be on the raw operation object
+    const operation = await getGenAI(apiKey).models.generateVideos({ model, prompt, config });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const opName = (operation as any).name || '';
     return { operationName: opName };
@@ -235,9 +324,7 @@ export async function pollVideoOperation(
         operation: { name: operationName },
     });
 
-    if (!op.done) {
-        return { done: false };
-    }
+    if (!op.done) return { done: false };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const samples = (op.response as any)?.generatedSamples;
