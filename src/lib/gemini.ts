@@ -4,8 +4,7 @@ const defaultApiKey = process.env.GEMINI_API_KEY!;
 
 // Vertex AI config
 const VERTEX_API_KEY = process.env.VERTEX_API_KEY || '';
-const VERTEX_REGIONS = (process.env.VERTEX_REGIONS || 'us-central1,europe-west1,europe-west4,asia-northeast1').split(',');
-const VERTEX_BASE = 'https://aiplatform.googleapis.com/v1/publishers/google/models';
+const VERTEX_REGIONS = (process.env.VERTEX_REGIONS || 'us-central1,europe-west1,europe-west4,asia-southeast1').split(',');
 
 // Direct API client (for users with their own key)
 export const genai = new GoogleGenAI({ apiKey: defaultApiKey });
@@ -25,7 +24,7 @@ function shouldUseVertex(userApiKey?: string): boolean {
 async function vertexRequest(model: string, body: Record<string, unknown>, endpoint: string = 'generateContent'): Promise<Record<string, unknown>> {
     let lastError: unknown;
     for (const region of VERTEX_REGIONS) {
-        const url = `${VERTEX_BASE}/${model}:${endpoint}?key=${VERTEX_API_KEY}`;
+        const url = `https://${region}-aiplatform.googleapis.com/v1/publishers/google/models/${model}:${endpoint}?key=${VERTEX_API_KEY}`;
         try {
             const res = await fetch(url, {
                 method: 'POST',
