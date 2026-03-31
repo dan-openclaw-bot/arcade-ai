@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { getAuthClient, getApiKey } from '@/lib/auth';
+import { getAuthClient, getApiKey, isAdmin } from '@/lib/auth';
 import { generateSingleImage } from '@/lib/gemini';
 import { IMAGE_MODELS } from '@/lib/types';
 
@@ -11,9 +11,10 @@ export async function POST(req: NextRequest) {
     try {
         const { user, supabase } = await getAuthClient();
 
-        // Get the Google API key (admin uses .env, users use header)
-        const googleKey = getApiKey(req, 'google', user.id);
-        if (!googleKey) {
+        // Admin uses Vertex AI (no API key needed), users need their own key
+        const adminUser = isAdmin(user.id);
+        const googleKey = adminUser ? null : getApiKey(req, 'google', user.id);
+        if (!adminUser && !googleKey) {
             return NextResponse.json({ error: 'Google API key required. Set it in Settings.', missingKeyProvider: 'google' }, { status: 400 });
         }
 
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
                 try {
                     const imageData = await generateSingleImage(
                         finalPrompt, model, aspect_ratio,
-                        reference_image_urls || [], quality_suffix, negative_prompt, googleKey
+                        reference_image_urls || [], quality_suffix, negative_prompt, googleKey || undefined
                     );
 
                     if (!imageData?.base64) {
