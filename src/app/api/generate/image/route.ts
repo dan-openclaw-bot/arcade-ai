@@ -1,10 +1,10 @@
-export const maxDuration = 300;
+export const maxDuration = 600;
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { getAuthClient, getApiKey } from '@/lib/auth';
-import { generateImages } from '@/lib/gemini';
+import { generateSingleImage } from '@/lib/gemini';
 import { IMAGE_MODELS } from '@/lib/types';
 
 export async function POST(req: NextRequest) {
@@ -76,35 +76,29 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: insertError?.message || 'Insert failed' }, { status: 500 });
         }
 
-        // Generate images via Gemini (with user's key)
-        // Use service role client for storage uploads (RLS doesn't apply to storage the same way)
         const serviceSupabase = createServerSupabaseClient();
-        let images: { base64: string; mimeType: string }[] = [];
-        try {
-            images = await generateImages(finalPrompt, model, count, aspect_ratio, reference_image_urls || [], quality_suffix, negative_prompt, googleKey);
-        } catch (genError: unknown) {
-            // Mark all as error
-            await supabase
-                .from('generations')
-                .update({ status: 'error', error_message: String(genError), updated_at: new Date().toISOString() })
-                .in('id', records.map((r) => r.id));
+        const updatedRecords = [];
 
-            return NextResponse.json({ error: String(genError) }, { status: 500 });
-        }
+        // Generate and upload images ONE BY ONE so each is saved immediately
+        // If timeout hits on image N, images 1..N-1 are already saved
+        for (let i = 0; i < records.length; i++) {
+            const record = records[i];
+            try {
+                const imageData = await generateSingleImage(
+                    finalPrompt, model, aspect_ratio,
+                    reference_image_urls || [], quality_suffix, negative_prompt, googleKey
+                );
 
-        // Upload each image to Supabase storage + update DB record
-        const updatedRecords = await Promise.all(
-            records.map(async (record, idx) => {
-                const imageData = images[idx];
                 if (!imageData?.base64) {
                     await supabase
                         .from('generations')
                         .update({ status: 'error', error_message: 'No image data returned', updated_at: new Date().toISOString() })
                         .eq('id', record.id);
-                    return { ...record, status: 'error' };
+                    updatedRecords.push({ ...record, status: 'error' });
+                    continue;
                 }
 
-                // Convert base64 to Buffer for upload
+                // Upload immediately
                 const buffer = Buffer.from(imageData.base64, 'base64');
                 const ext = imageData.mimeType === 'image/png' ? 'png' : 'jpg';
                 const filename = `${project_id}/${record.id}.${ext}`;
@@ -121,7 +115,8 @@ export async function POST(req: NextRequest) {
                         .from('generations')
                         .update({ status: 'error', error_message: uploadError.message, updated_at: new Date().toISOString() })
                         .eq('id', record.id);
-                    return { ...record, status: 'error' };
+                    updatedRecords.push({ ...record, status: 'error' });
+                    continue;
                 }
 
                 const { data: publicUrl } = serviceSupabase.storage.from('generations').getPublicUrl(filename);
@@ -137,9 +132,16 @@ export async function POST(req: NextRequest) {
                     .select()
                     .single();
 
-                return updated || { ...record, status: 'done' };
-            })
-        );
+                updatedRecords.push(updated || { ...record, status: 'done' });
+            } catch (genError: unknown) {
+                // Mark THIS record as error, continue to next
+                await supabase
+                    .from('generations')
+                    .update({ status: 'error', error_message: String(genError), updated_at: new Date().toISOString() })
+                    .eq('id', record.id);
+                updatedRecords.push({ ...record, status: 'error' });
+            }
+        }
 
         return NextResponse.json({ generations: updatedRecords }, { status: 201 });
     } catch (err: unknown) {

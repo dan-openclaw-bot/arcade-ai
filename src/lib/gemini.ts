@@ -10,6 +10,24 @@ function getGenAI(apiKey?: string): GoogleGenAI {
 }
 
 /**
+ * Generate a SINGLE image using Imagen or Gemini models
+ * Returns one base64 image — call in a loop for multiple images
+ * This ensures each image is saved immediately before the next starts
+ */
+export async function generateSingleImage(
+    prompt: string,
+    model: string,
+    aspectRatio: string = '1:1',
+    referenceImageUrls: string[] = [],
+    qualitySuffix?: string,
+    negativePrompt?: string,
+    apiKey?: string,
+): Promise<{ base64: string; mimeType: string } | null> {
+    const result = await generateImages(prompt, model, 1, aspectRatio, referenceImageUrls, qualitySuffix, negativePrompt, apiKey);
+    return result[0] || null;
+}
+
+/**
  * Generate images using Imagen or Gemini models
  * Returns array of base64 image data
  */
