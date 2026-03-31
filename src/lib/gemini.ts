@@ -4,7 +4,9 @@ const defaultApiKey = process.env.GEMINI_API_KEY!;
 
 // Vertex AI config
 const VERTEX_API_KEY = process.env.VERTEX_API_KEY || '';
-const VERTEX_REGIONS = (process.env.VERTEX_REGIONS || 'us-central1,europe-west1,europe-west4,asia-southeast1').split(',');
+const VERTEX_REGIONS = (process.env.VERTEX_REGIONS || 'us-central1,europe-west1,europe-west4').split(',');
+// Gemini image models only work on the global endpoint
+const VERTEX_GLOBAL = 'https://aiplatform.googleapis.com/v1/publishers/google/models';
 
 // Direct API client (for users with their own key)
 export const genai = new GoogleGenAI({ apiKey: defaultApiKey });
@@ -19,9 +21,26 @@ function shouldUseVertex(userApiKey?: string): boolean {
 }
 
 /**
- * Call Vertex AI REST API with region fallback on quota/capacity errors
+ * Call Vertex AI — Gemini models use global endpoint, Imagen uses regional with fallback
  */
-async function vertexRequest(model: string, body: Record<string, unknown>, endpoint: string = 'generateContent'): Promise<Record<string, unknown>> {
+async function vertexFetch(model: string, body: Record<string, unknown>, endpoint: string = 'generateContent'): Promise<Record<string, unknown>> {
+    if (model.startsWith('gemini-')) {
+        // Gemini image models → global endpoint only
+        const url = `${VERTEX_GLOBAL}/${model}:${endpoint}?key=${VERTEX_API_KEY}`;
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            const errMsg = (data as { error?: { message?: string } }).error?.message || `HTTP ${res.status}`;
+            throw new Error(errMsg);
+        }
+        return data as Record<string, unknown>;
+    }
+
+    // Imagen models → regional endpoints with fallback
     let lastError: unknown;
     for (const region of VERTEX_REGIONS) {
         const url = `https://${region}-aiplatform.googleapis.com/v1/publishers/google/models/${model}:${endpoint}?key=${VERTEX_API_KEY}`;
@@ -31,9 +50,7 @@ async function vertexRequest(model: string, body: Record<string, unknown>, endpo
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
             });
-
             const data = await res.json();
-
             if (!res.ok) {
                 const errMsg = (data as { error?: { message?: string } }).error?.message || `HTTP ${res.status}`;
                 const lower = errMsg.toLowerCase();
@@ -44,7 +61,6 @@ async function vertexRequest(model: string, body: Record<string, unknown>, endpo
                 }
                 throw new Error(errMsg);
             }
-
             return data as Record<string, unknown>;
         } catch (err: unknown) {
             lastError = err;
@@ -125,14 +141,13 @@ export async function generateImages(
         const actualCount = Math.min(count, 4);
 
         if (useVertex) {
-            // Vertex AI REST — parallel calls with region fallback per call
             const body = {
                 contents: [{ role: 'user', parts: contents }],
                 generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
             };
 
             const responses = await Promise.all(
-                Array.from({ length: actualCount }, () => vertexRequest(model, body))
+                Array.from({ length: actualCount }, () => vertexFetch(model, body))
             );
 
             const results: { base64: string; mimeType: string }[] = [];
@@ -217,14 +232,14 @@ export async function generateImages(
     const actualCount = Math.min(count, 4);
 
     if (useVertex) {
-        // Vertex AI REST for Imagen
+        // Vertex AI REST for Imagen — regional with fallback
         const body = {
             instances: [{ prompt: finalPrompt }],
             parameters: config,
         };
 
         const responses = await Promise.all(
-            Array.from({ length: actualCount }, () => vertexRequest(model, body, 'predict'))
+            Array.from({ length: actualCount }, () => vertexFetch(model, body, 'predict'))
         );
 
         const results: { base64: string; mimeType: string }[] = [];
@@ -300,7 +315,7 @@ export async function generateVideo(
             parameters: config,
         };
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const data = await vertexRequest(model, body, 'predict') as any;
+        const data = await vertexFetch(model, body, 'predict') as any;
         const opName = data.name || '';
         return { operationName: opName };
     }
