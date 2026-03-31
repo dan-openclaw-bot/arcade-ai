@@ -77,71 +77,69 @@ export async function POST(req: NextRequest) {
         }
 
         const serviceSupabase = createServerSupabaseClient();
-        const updatedRecords = [];
 
-        // Generate and upload images ONE BY ONE so each is saved immediately
-        // If timeout hits on image N, images 1..N-1 are already saved
-        for (let i = 0; i < records.length; i++) {
-            const record = records[i];
-            try {
-                const imageData = await generateSingleImage(
-                    finalPrompt, model, aspect_ratio,
-                    reference_image_urls || [], quality_suffix, negative_prompt, googleKey
-                );
+        // Generate all images in PARALLEL, but each one uploads + saves to DB
+        // as soon as it's ready — no waiting for the others
+        const updatedRecords = await Promise.all(
+            records.map(async (record) => {
+                try {
+                    const imageData = await generateSingleImage(
+                        finalPrompt, model, aspect_ratio,
+                        reference_image_urls || [], quality_suffix, negative_prompt, googleKey
+                    );
 
-                if (!imageData?.base64) {
+                    if (!imageData?.base64) {
+                        await supabase
+                            .from('generations')
+                            .update({ status: 'error', error_message: 'No image data returned', updated_at: new Date().toISOString() })
+                            .eq('id', record.id);
+                        return { ...record, status: 'error' };
+                    }
+
+                    // Upload immediately after THIS image is generated
+                    const buffer = Buffer.from(imageData.base64, 'base64');
+                    const ext = imageData.mimeType === 'image/png' ? 'png' : 'jpg';
+                    const filename = `${project_id}/${record.id}.${ext}`;
+
+                    const { error: uploadError } = await serviceSupabase.storage
+                        .from('generations')
+                        .upload(filename, buffer, {
+                            contentType: imageData.mimeType,
+                            upsert: true,
+                        });
+
+                    if (uploadError) {
+                        await supabase
+                            .from('generations')
+                            .update({ status: 'error', error_message: uploadError.message, updated_at: new Date().toISOString() })
+                            .eq('id', record.id);
+                        return { ...record, status: 'error' };
+                    }
+
+                    const { data: publicUrl } = serviceSupabase.storage.from('generations').getPublicUrl(filename);
+
+                    const { data: updated } = await supabase
+                        .from('generations')
+                        .update({
+                            status: 'done',
+                            output_url: publicUrl.publicUrl,
+                            updated_at: new Date().toISOString(),
+                        })
+                        .eq('id', record.id)
+                        .select()
+                        .single();
+
+                    return updated || { ...record, status: 'done' };
+                } catch (genError: unknown) {
+                    // This image failed but others continue in parallel
                     await supabase
                         .from('generations')
-                        .update({ status: 'error', error_message: 'No image data returned', updated_at: new Date().toISOString() })
+                        .update({ status: 'error', error_message: String(genError), updated_at: new Date().toISOString() })
                         .eq('id', record.id);
-                    updatedRecords.push({ ...record, status: 'error' });
-                    continue;
+                    return { ...record, status: 'error' };
                 }
-
-                // Upload immediately
-                const buffer = Buffer.from(imageData.base64, 'base64');
-                const ext = imageData.mimeType === 'image/png' ? 'png' : 'jpg';
-                const filename = `${project_id}/${record.id}.${ext}`;
-
-                const { error: uploadError } = await serviceSupabase.storage
-                    .from('generations')
-                    .upload(filename, buffer, {
-                        contentType: imageData.mimeType,
-                        upsert: true,
-                    });
-
-                if (uploadError) {
-                    await supabase
-                        .from('generations')
-                        .update({ status: 'error', error_message: uploadError.message, updated_at: new Date().toISOString() })
-                        .eq('id', record.id);
-                    updatedRecords.push({ ...record, status: 'error' });
-                    continue;
-                }
-
-                const { data: publicUrl } = serviceSupabase.storage.from('generations').getPublicUrl(filename);
-
-                const { data: updated } = await supabase
-                    .from('generations')
-                    .update({
-                        status: 'done',
-                        output_url: publicUrl.publicUrl,
-                        updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', record.id)
-                    .select()
-                    .single();
-
-                updatedRecords.push(updated || { ...record, status: 'done' });
-            } catch (genError: unknown) {
-                // Mark THIS record as error, continue to next
-                await supabase
-                    .from('generations')
-                    .update({ status: 'error', error_message: String(genError), updated_at: new Date().toISOString() })
-                    .eq('id', record.id);
-                updatedRecords.push({ ...record, status: 'error' });
-            }
-        }
+            })
+        );
 
         return NextResponse.json({ generations: updatedRecords }, { status: 201 });
     } catch (err: unknown) {
