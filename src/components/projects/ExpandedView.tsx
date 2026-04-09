@@ -1,31 +1,69 @@
 'use client';
 
-import { Generation } from '@/lib/types';
+import { useEffect, useMemo, useState } from 'react';
+import { Generation, Preprompt, AspectRatio, GenerateImageFormatVariantsRequest } from '@/lib/types';
 import { X, Download, Copy, Check, ChevronLeft, ChevronRight, Trash2, Pencil, User } from 'lucide-react';
-import { useState } from 'react';
 import { IMAGE_MODELS, VIDEO_MODELS } from '@/lib/types';
 
 interface ExpandedViewProps {
     generation: Generation;
     allGenerations: Generation[];
+    preprompts: Preprompt[];
     onClose: () => void;
     onNavigate: (gen: Generation) => void;
     onDeleted: (id: string) => void;
     onEdit?: (imageUrl: string) => void;
+    onGenerateFormats?: (generation: Generation, request: GenerateImageFormatVariantsRequest) => void;
 }
 
-export default function ExpandedView({ generation, allGenerations, onClose, onNavigate, onDeleted, onEdit }: ExpandedViewProps) {
+const DEFAULT_FORMAT_PREPROMPT = `Recreate the provided reference image as faithfully as possible while adapting it to the requested aspect ratio. Preserve the same subject, composition intent, mood, styling, colors, typography, branding, and key visual elements. Expand the canvas naturally instead of cropping important content, and fill the new space in a coherent, realistic way suitable for paid social placements.`;
+const FORMAT_VARIANT_OPTIONS: Array<{ ratio: AspectRatio; label: string; description: string }> = [
+    { ratio: '9:16', label: '9:16', description: 'Story / Reels / mobile vertical' },
+    { ratio: '16:9', label: '16:9', description: 'Banniere / landscape / Facebook' },
+];
+
+function scoreFormatPreprompt(preprompt: Preprompt): number {
+    const haystack = `${preprompt.name} ${preprompt.content}`.toLowerCase();
+    const keywords = ['format', 'formats', 'ratio', 'facebook', 'banner', 'banniere', 'declinaison', 'resize', 'recadr', 'outpaint', 'expand'];
+    return keywords.reduce((score, keyword) => score + (haystack.includes(keyword) ? 1 : 0), 0);
+}
+
+function getDefaultFormatPreprompt(preprompts: Preprompt[]): Preprompt | null {
+    const eligiblePreprompts = preprompts.filter((preprompt) => preprompt.type === 'image' || preprompt.type === 'both');
+    if (eligiblePreprompts.length === 0) return null;
+
+    return [...eligiblePreprompts].sort((a, b) => scoreFormatPreprompt(b) - scoreFormatPreprompt(a))[0];
+}
+
+export default function ExpandedView({ generation, allGenerations, preprompts, onClose, onNavigate, onDeleted, onEdit, onGenerateFormats }: ExpandedViewProps) {
     const [copied, setCopied] = useState(false);
     const [showActorModal, setShowActorModal] = useState(false);
     const [actorName, setActorName] = useState('');
     const [savingActor, setSavingActor] = useState(false);
     const [actorSaved, setActorSaved] = useState(false);
+    const [showFormatsModal, setShowFormatsModal] = useState(false);
+    const [selectedFormatRatios, setSelectedFormatRatios] = useState<AspectRatio[]>(['9:16', '16:9']);
+    const [selectedFormatPrepromptId, setSelectedFormatPrepromptId] = useState<string | null>(null);
+    const [formatPrepromptContent, setFormatPrepromptContent] = useState(DEFAULT_FORMAT_PREPROMPT);
 
     const currentIndex = allGenerations.findIndex((g) => g.id === generation.id);
     const prev = currentIndex > 0 ? allGenerations[currentIndex - 1] : null;
     const next = currentIndex < allGenerations.length - 1 ? allGenerations[currentIndex + 1] : null;
 
     const modelInfo = [...IMAGE_MODELS, ...VIDEO_MODELS].find((m) => m.id === generation.model);
+    const imagePreprompts = useMemo(
+        () => preprompts.filter((preprompt) => preprompt.type === 'image' || preprompt.type === 'both'),
+        [preprompts]
+    );
+
+    useEffect(() => {
+        if (!showFormatsModal) return;
+
+        const defaultPreprompt = getDefaultFormatPreprompt(preprompts);
+        setSelectedFormatRatios(['9:16', '16:9']);
+        setSelectedFormatPrepromptId(defaultPreprompt?.id || null);
+        setFormatPrepromptContent(defaultPreprompt?.content || DEFAULT_FORMAT_PREPROMPT);
+    }, [showFormatsModal, preprompts]);
 
     async function copyPrompt() {
         await navigator.clipboard.writeText(generation.prompt);
@@ -72,6 +110,33 @@ export default function ExpandedView({ generation, allGenerations, onClose, onNa
         } finally {
             setSavingActor(false);
         }
+    }
+
+    function handleToggleFormatRatio(ratio: AspectRatio) {
+        setSelectedFormatRatios((prev) =>
+            prev.includes(ratio)
+                ? prev.filter((item) => item !== ratio)
+                : [...prev, ratio]
+        );
+    }
+
+    function handlePrepromptSelection(prepromptId: string) {
+        const selectedPreprompt = imagePreprompts.find((preprompt) => preprompt.id === prepromptId) || null;
+        setSelectedFormatPrepromptId(selectedPreprompt?.id || null);
+        setFormatPrepromptContent(selectedPreprompt?.content || DEFAULT_FORMAT_PREPROMPT);
+    }
+
+    function handleGenerateFormats() {
+        if (!onGenerateFormats || !generation.output_url || selectedFormatRatios.length === 0) return;
+
+        onGenerateFormats(generation, {
+            aspectRatios: FORMAT_VARIANT_OPTIONS
+                .map((option) => option.ratio)
+                .filter((ratio) => selectedFormatRatios.includes(ratio)),
+            prepromptId: selectedFormatPrepromptId,
+            prepromptOverride: formatPrepromptContent.trim() || DEFAULT_FORMAT_PREPROMPT,
+        });
+        setShowFormatsModal(false);
     }
 
     return (
@@ -151,6 +216,18 @@ export default function ExpandedView({ generation, allGenerations, onClose, onNa
                             >
                                 <Pencil className="w-3.5 h-3.5" />
                                 Edit
+                            </button>
+                        )}
+                        {generation.type === 'image' && generation.output_url && onGenerateFormats && (
+                            <button
+                                onClick={() => setShowFormatsModal(true)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-sm font-medium transition-colors"
+                            >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                    <rect x="3" y="5" width="7" height="14" rx="1.5" />
+                                    <rect x="14" y="8" width="7" height="8" rx="1.5" />
+                                </svg>
+                                Formats
                             </button>
                         )}
                     </div>
@@ -272,6 +349,101 @@ export default function ExpandedView({ generation, allGenerations, onClose, onNa
                     )}
                 </div>
             </div>
+
+            {showFormatsModal && (
+                <div className="fixed inset-0 z-[60] bg-black/35 flex items-center justify-center p-4" onClick={() => setShowFormatsModal(false)}>
+                    <div
+                        className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl animate-slide-up"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-start justify-between gap-4 mb-4">
+                            <div>
+                                <h3 className="text-gray-900 font-semibold text-base">Decliner en plusieurs formats</h3>
+                                <p className="text-sm text-gray-500 mt-1">
+                                    L&apos;image actuelle sera reprise comme reference, puis regeneree dans les formats selectionnes.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setShowFormatsModal(false)}
+                                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors shrink-0"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <p className="text-xs text-gray-500 font-medium uppercase tracking-wider mb-2">Formats cibles</p>
+                                <div className="grid gap-2">
+                                    {FORMAT_VARIANT_OPTIONS.map((option) => {
+                                        const isSelected = selectedFormatRatios.includes(option.ratio);
+                                        return (
+                                            <button
+                                                key={option.ratio}
+                                                onClick={() => handleToggleFormatRatio(option.ratio)}
+                                                className={`flex items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors ${isSelected ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'}`}
+                                            >
+                                                <div className={`w-4 h-4 rounded border flex items-center justify-center ${isSelected ? 'border-amber-500 bg-amber-500 text-white' : 'border-gray-300 bg-white text-transparent'}`}>
+                                                    <Check className="w-3 h-3" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-semibold text-gray-900">{option.label}</p>
+                                                    <p className="text-xs text-gray-500">{option.description}</p>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div>
+                                <p className="text-xs text-gray-500 font-medium uppercase tracking-wider mb-2">Pre-prompt</p>
+                                <select
+                                    value={selectedFormatPrepromptId || ''}
+                                    onChange={(e) => handlePrepromptSelection(e.target.value)}
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-amber-400"
+                                >
+                                    {imagePreprompts.length === 0 && <option value="">Pre-prompt par defaut</option>}
+                                    {imagePreprompts.length > 0 && (
+                                        <>
+                                            <option value="">Pre-prompt par defaut</option>
+                                            {imagePreprompts.map((preprompt) => (
+                                                <option key={preprompt.id} value={preprompt.id}>{preprompt.name}</option>
+                                            ))}
+                                        </>
+                                    )}
+                                </select>
+                            </div>
+
+                            <div>
+                                <p className="text-xs text-gray-500 font-medium uppercase tracking-wider mb-2">Instructions modifiables</p>
+                                <textarea
+                                    value={formatPrepromptContent}
+                                    onChange={(e) => setFormatPrepromptContent(e.target.value)}
+                                    rows={6}
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 leading-relaxed resize-none outline-none focus:border-amber-400"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2 mt-5">
+                            <button
+                                onClick={() => setShowFormatsModal(false)}
+                                className="px-4 py-2 rounded-xl text-sm text-gray-600 hover:bg-gray-100 transition-colors"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={handleGenerateFormats}
+                                disabled={selectedFormatRatios.length === 0}
+                                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-white text-sm font-semibold transition-colors disabled:opacity-40"
+                            >
+                                Generer les formats
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -191,10 +191,17 @@ export interface GenerateImageRequest {
     count: number;
     client_request_id?: string;
     preprompt_id?: string;
+    preprompt_override?: string;
     actor_id?: string;
     reference_image_urls?: string[];
     quality_suffix?: string;
     negative_prompt?: string;
+}
+
+export interface GenerateImageFormatVariantsRequest {
+    aspectRatios: AspectRatio[];
+    prepromptId?: string | null;
+    prepromptOverride?: string;
 }
 
 export interface GenerateVideoRequest {

@@ -83,6 +83,7 @@ export async function POST(req: NextRequest) {
             count = 1,
             client_request_id,
             preprompt_id,
+            preprompt_override,
             actor_id,
             reference_image_urls,
             quality_suffix,
@@ -103,7 +104,11 @@ export async function POST(req: NextRequest) {
 
         // Build final prompt with preprompt if given
         let finalPrompt = prompt;
-        if (preprompt_id) {
+        const prepromptOverride = typeof preprompt_override === 'string' ? preprompt_override.trim() : '';
+
+        if (prepromptOverride) {
+            finalPrompt = `${prepromptOverride}\n\n${prompt}`;
+        } else if (preprompt_id) {
             const { data: preprompt } = await supabase
                 .from('preprompts')
                 .select('content')

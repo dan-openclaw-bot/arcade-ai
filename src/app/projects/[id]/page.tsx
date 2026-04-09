@@ -6,7 +6,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import GenerationsGrid from '@/components/projects/GenerationsGrid';
 import PromptBar from '@/components/projects/PromptBar';
 import ExpandedView from '@/components/projects/ExpandedView';
-import { Generation, Project, Preprompt, Actor } from '@/lib/types';
+import { Generation, Project, Preprompt, Actor, AspectRatio, GenerateImageFormatVariantsRequest, GenerateImageRequest } from '@/lib/types';
 import { Download, Trash2, X, CheckSquare, AlertCircle } from 'lucide-react';
 
 function isGenerationInFlight(generation: Generation): boolean {
@@ -28,6 +28,50 @@ function getClientRequestKey(generation: Generation): string | null {
     }
 
     return null;
+}
+
+function createClientRequestId(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
+
+    return `req-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function createOptimisticImageGeneration(
+    projectId: string,
+    sourceGeneration: Generation,
+    aspectRatio: AspectRatio,
+    clientRequestId: string,
+): Generation {
+    const requestTimestamp = new Date().toISOString();
+
+    return {
+        id: `optimistic-${clientRequestId}`,
+        project_id: projectId,
+        type: 'image',
+        prompt: sourceGeneration.prompt,
+        preprompt_id: sourceGeneration.preprompt_id,
+        actor_id: sourceGeneration.actor_id,
+        model: sourceGeneration.model,
+        aspect_ratio: aspectRatio,
+        duration_seconds: null,
+        resolution: null,
+        status: 'generating',
+        output_url: null,
+        error_message: null,
+        metadata: {
+            ...(sourceGeneration.metadata || {}),
+            client_request_id: clientRequestId,
+            client_request_index: 0,
+            optimistic: true,
+            source_generation_id: sourceGeneration.id,
+        },
+        created_at: requestTimestamp,
+        updated_at: requestTimestamp,
+        preprompt: sourceGeneration.preprompt,
+        actor: sourceGeneration.actor,
+    };
 }
 
 interface ToastNotice {
@@ -198,6 +242,68 @@ export default function ProjectPage() {
             prev.filter((generation) => generation.metadata?.client_request_id !== clientRequestId)
         );
         void loadGenerations().catch(() => { });
+    }
+
+    function notifyImageGenerationError(message: string = 'Une image n’a pas pu être générée.') {
+        pushToast(message);
+    }
+
+    function handleGenerateFormatVariants(sourceGeneration: Generation, request: GenerateImageFormatVariantsRequest) {
+        if (!sourceGeneration.output_url || request.aspectRatios.length === 0) return;
+
+        const requests = request.aspectRatios.map((aspectRatio) => {
+            const clientRequestId = createClientRequestId();
+            return {
+                aspectRatio,
+                clientRequestId,
+                optimisticGeneration: createOptimisticImageGeneration(id, sourceGeneration, aspectRatio, clientRequestId),
+            };
+        });
+
+        handleGenerationStarted(requests.map((item) => item.optimisticGeneration));
+
+        void (async () => {
+            for (const [index, item] of requests.entries()) {
+                if (index > 0) {
+                    await new Promise((resolve) => setTimeout(resolve, 450));
+                }
+
+                try {
+                    const body: GenerateImageRequest = {
+                        project_id: id,
+                        prompt: sourceGeneration.prompt,
+                        model: sourceGeneration.model,
+                        aspect_ratio: item.aspectRatio,
+                        count: 1,
+                        client_request_id: item.clientRequestId,
+                        preprompt_id: request.prepromptId || undefined,
+                        preprompt_override: request.prepromptOverride,
+                        actor_id: sourceGeneration.actor_id || undefined,
+                        reference_image_urls: [sourceGeneration.output_url!],
+                    };
+
+                    const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+                    const openaiKey = typeof window !== 'undefined' ? localStorage.getItem('openai_key') : null;
+                    const googleKey = typeof window !== 'undefined' ? localStorage.getItem('google_key') : null;
+                    if (openaiKey) apiHeaders['x-openai-key'] = openaiKey;
+                    if (googleKey) apiHeaders['x-google-key'] = googleKey;
+
+                    const res = await fetch('/api/generate/image', {
+                        method: 'POST',
+                        headers: apiHeaders,
+                        body: JSON.stringify(body),
+                    });
+
+                    if (!res.ok) {
+                        handleGenerationFailed(item.clientRequestId);
+                        notifyImageGenerationError();
+                    }
+                } catch {
+                    handleGenerationFailed(item.clientRequestId);
+                    notifyImageGenerationError();
+                }
+            }
+        })();
     }
 
     function handleDeleted(deletedId: string) {
@@ -399,7 +505,7 @@ export default function ProjectPage() {
             </div>
 
             {toastNotices.length > 0 && (
-                <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+                <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
                     {toastNotices.map((notice) => (
                         <div
                             key={notice.id}
@@ -417,10 +523,12 @@ export default function ProjectPage() {
                 <ExpandedView
                     generation={expandedGen}
                     allGenerations={displayGenerations.filter((g) => g.status === 'done')}
+                    preprompts={preprompts}
                     onClose={() => setExpandedGen(null)}
                     onNavigate={setExpandedGen}
                     onDeleted={handleDeleted}
                     onEdit={handleEdit}
+                    onGenerateFormats={handleGenerateFormatVariants}
                 />
             )}
         </div>
