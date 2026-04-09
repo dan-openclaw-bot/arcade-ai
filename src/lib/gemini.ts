@@ -1,6 +1,8 @@
 import { GoogleGenAI } from '@google/genai';
 
 const defaultApiKey = process.env.GEMINI_API_KEY!;
+const IMAGE_RETRY_ATTEMPTS = 4;
+const IMAGE_RETRY_BASE_DELAY_MS = 1500;
 
 // Vertex AI config
 const VERTEX_API_KEY = process.env.VERTEX_API_KEY || '';
@@ -20,24 +22,73 @@ function shouldUseVertex(userApiKey?: string): boolean {
     return !userApiKey && !!VERTEX_API_KEY;
 }
 
+function getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
+
+function isRetryableCapacityError(error: unknown): boolean {
+    const lower = getErrorMessage(error).toLowerCase();
+    return (
+        lower.includes('resource exhausted')
+        || lower.includes('resource has been exhausted')
+        || lower.includes('quota')
+        || lower.includes('capacity')
+        || lower.includes('too many requests')
+        || lower.includes('429')
+        || lower.includes('503')
+        || lower.includes('unavailable')
+    );
+}
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withRetry<T>(label: string, task: () => Promise<T>, attempts: number = IMAGE_RETRY_ATTEMPTS): Promise<T> {
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        try {
+            return await task();
+        } catch (error: unknown) {
+            lastError = error;
+
+            if (!isRetryableCapacityError(error) || attempt === attempts) {
+                throw error;
+            }
+
+            const exponentialDelay = Math.min(12000, IMAGE_RETRY_BASE_DELAY_MS * (2 ** (attempt - 1)));
+            const jitter = Math.floor(Math.random() * 500);
+            const retryDelay = exponentialDelay + jitter;
+
+            console.warn(`${label} temporarily exhausted (attempt ${attempt}/${attempts}). Retrying in ${retryDelay}ms...`);
+            await sleep(retryDelay);
+        }
+    }
+
+    throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
 /**
  * Call Vertex AI — Gemini models use global endpoint, Imagen uses regional with fallback
  */
 async function vertexFetch(model: string, body: Record<string, unknown>, endpoint: string = 'generateContent'): Promise<Record<string, unknown>> {
     if (model.startsWith('gemini-')) {
         // Gemini image models → global endpoint only
-        const url = `${VERTEX_GLOBAL}/${model}:${endpoint}?key=${VERTEX_API_KEY}`;
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
+        return withRetry(`Vertex AI ${model}`, async () => {
+            const url = `${VERTEX_GLOBAL}/${model}:${endpoint}?key=${VERTEX_API_KEY}`;
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                const errMsg = (data as { error?: { message?: string } }).error?.message || `HTTP ${res.status}`;
+                throw new Error(`${errMsg} (HTTP ${res.status})`);
+            }
+            return data as Record<string, unknown>;
         });
-        const data = await res.json();
-        if (!res.ok) {
-            const errMsg = (data as { error?: { message?: string } }).error?.message || `HTTP ${res.status}`;
-            throw new Error(errMsg);
-        }
-        return data as Record<string, unknown>;
     }
 
     // Imagen models → regional endpoints with fallback
@@ -170,15 +221,17 @@ export async function generateImages(
 
         // Direct API for users with their own key
         const ai = getGenAI(apiKey);
-        const responses = await Promise.all(
-            Array.from({ length: actualCount }, () =>
+        const responses = [];
+        for (let index = 0; index < actualCount; index += 1) {
+            const response = await withRetry(`Gemini API ${model}`, () =>
                 ai.models.generateContent({
                     model,
                     contents,
                     config: { responseModalities: ['Text', 'Image'] },
                 })
-            )
-        );
+            );
+            responses.push(response);
+        }
 
         const results: { base64: string; mimeType: string }[] = [];
         for (const response of responses) {
@@ -257,11 +310,13 @@ export async function generateImages(
     }
 
     // Direct API for users
-    const responses = await Promise.all(
-        Array.from({ length: actualCount }, () =>
+    const responses = [];
+    for (let index = 0; index < actualCount; index += 1) {
+        const response = await withRetry(`Gemini API ${model}`, () =>
             getGenAI(apiKey).models.generateImages({ model, prompt: finalPrompt, config })
-        )
-    );
+        );
+        responses.push(response);
+    }
 
     const results: { base64: string; mimeType: string }[] = [];
     for (const response of responses) {

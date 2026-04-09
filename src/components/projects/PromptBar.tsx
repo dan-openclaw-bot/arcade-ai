@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { IMAGE_MODELS, VIDEO_MODELS, AspectRatio, GenerateImageRequest, GenerateVideoRequest } from '@/lib/types';
+import { useState, useRef, useEffect } from 'react';
+import { IMAGE_MODELS, VIDEO_MODELS, AspectRatio, GenerateImageRequest, GenerateVideoRequest, Generation } from '@/lib/types';
 import MissingKeyModal from '@/components/MissingKeyModal';
 
 type Tab = 'video' | 'image';
@@ -10,7 +10,8 @@ interface PromptBarProps {
     projectId: string;
     preprompts: { id: string; name: string }[];
     actors: { id: string; name: string; image_url: string }[];
-    onGenerationStarted: () => void;
+    onGenerationStarted: (optimisticGenerations?: Generation[]) => void;
+    onGenerationFailed: (clientRequestId: string) => void;
     editReferenceUrl?: string | null;
     onEditReferenceHandled?: () => void;
 }
@@ -174,7 +175,21 @@ function SettingsPopup({
     );
 }
 
-export default function PromptBar({ projectId, preprompts, actors, onGenerationStarted, editReferenceUrl, onEditReferenceHandled }: PromptBarProps) {
+function createClientRequestId(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
+
+    return `req-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function getImageGenerationConcurrency(model: string): number {
+    if (model === 'gemini-3-pro-image-preview') return 1;
+    if (model.startsWith('gemini-')) return 2;
+    return 4;
+}
+
+export default function PromptBar({ projectId, preprompts, actors, onGenerationStarted, onGenerationFailed, editReferenceUrl, onEditReferenceHandled }: PromptBarProps) {
     const [tab, setTab] = useState<Tab>('image');
     const [prompt, setPrompt] = useState('');
     const [count, setCount] = useState(1);
@@ -290,12 +305,44 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
         const currentVideoDuration = videoDuration;
         const currentVideoResolution = videoResolution;
         const currentCount = count;
+        const clientRequestId = createClientRequestId();
+        const requestTimestamp = new Date().toISOString();
+
+        if (currentTab === 'image') {
+            const imageModelInfo = IMAGE_MODELS.find((m) => m.id === currentImageModel);
+            const concurrentSlots = Math.min(currentCount, getImageGenerationConcurrency(currentImageModel));
+            const optimisticGenerations: Generation[] = Array.from({ length: currentCount }, (_, index) => ({
+                id: `optimistic-${clientRequestId}-${index}`,
+                project_id: projectId,
+                type: 'image',
+                prompt: currentPrompt,
+                preprompt_id: selectedPrepromptId || null,
+                actor_id: selectedActorIds[0] || null,
+                model: currentImageModel,
+                aspect_ratio: currentImageAspect,
+                duration_seconds: null,
+                resolution: null,
+                status: index < concurrentSlots ? 'generating' : 'pending',
+                output_url: null,
+                error_message: null,
+                metadata: {
+                    model_name: imageModelInfo?.name || currentImageModel,
+                    client_request_id: clientRequestId,
+                    client_request_index: index,
+                    optimistic: true,
+                },
+                created_at: requestTimestamp,
+                updated_at: requestTimestamp,
+            }));
+
+            onGenerationStarted(optimisticGenerations);
+        } else {
+            onGenerationStarted();
+        }
 
         // Reset UI immediately so the user can queue more generations
         setPrompt('');
         setRefImages([]);
-
-        onGenerationStarted(); // Trigger UI polling instantly
 
         // Fire and forget — the generation grid polls for status independently
         (async () => {
@@ -327,6 +374,7 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                         model: currentImageModel,
                         aspect_ratio: currentImageAspect,
                         count: currentCount,
+                        client_request_id: clientRequestId,
                         // Combine uploaded ref images and all selected actor images into an array
                         reference_image_urls: [
                             ...finalRefUrls,
@@ -346,6 +394,7 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                     });
                     if (!res.ok) {
                         const d = await res.json();
+                        onGenerationFailed(clientRequestId);
                         if (d.missingKeyProvider) {
                             setPrompt(currentPrompt); // Recover prompt
                             setMissingKeyProvider(d.missingKeyProvider);
@@ -384,6 +433,7 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                     });
                     if (!res.ok) {
                         const d = await res.json();
+                        onGenerationFailed(clientRequestId);
                         if (d.missingKeyProvider) {
                             setPrompt(currentPrompt); // Recover prompt
                             setMissingKeyProvider(d.missingKeyProvider);
@@ -397,6 +447,7 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                 }
 
             } catch (e: unknown) {
+                onGenerationFailed(clientRequestId);
                 setError(e instanceof Error ? e.message.replace('Error: ApiError: ', '') : String(e));
             }
         })();

@@ -189,6 +189,7 @@ export interface GenerateImageRequest {
     model: string;
     aspect_ratio: AspectRatio;
     count: number;
+    client_request_id?: string;
     preprompt_id?: string;
     actor_id?: string;
     reference_image_urls?: string[];

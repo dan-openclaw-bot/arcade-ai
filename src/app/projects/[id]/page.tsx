@@ -7,28 +7,145 @@ import GenerationsGrid from '@/components/projects/GenerationsGrid';
 import PromptBar from '@/components/projects/PromptBar';
 import ExpandedView from '@/components/projects/ExpandedView';
 import { Generation, Project, Preprompt, Actor } from '@/lib/types';
-import { Download, Trash2, X, CheckSquare } from 'lucide-react';
+import { Download, Trash2, X, CheckSquare, AlertCircle } from 'lucide-react';
+
+function isGenerationInFlight(generation: Generation): boolean {
+    return generation.status === 'generating' || generation.status === 'pending';
+}
+
+function getClientRequestKey(generation: Generation): string | null {
+    const requestId = generation.metadata?.client_request_id;
+    const requestIndex = generation.metadata?.client_request_index;
+
+    if (typeof requestId !== 'string') return null;
+
+    if (typeof requestIndex === 'number') {
+        return `${requestId}:${requestIndex}`;
+    }
+
+    if (typeof requestIndex === 'string' && requestIndex.trim() !== '' && !Number.isNaN(Number(requestIndex))) {
+        return `${requestId}:${Number(requestIndex)}`;
+    }
+
+    return null;
+}
+
+interface ToastNotice {
+    id: string;
+    message: string;
+}
 
 export default function ProjectPage() {
     const { id } = useParams<{ id: string }>();
     const [project, setProject] = useState<Project | null>(null);
     const [generations, setGenerations] = useState<Generation[]>([]);
+    const [optimisticGenerations, setOptimisticGenerations] = useState<Generation[]>([]);
     const [preprompts, setPreprompts] = useState<Preprompt[]>([]);
     const [actors, setActors] = useState<Actor[]>([]);
     const [loading, setLoading] = useState(true);
     const [expandedGen, setExpandedGen] = useState<Generation | null>(null);
     const [editRefUrl, setEditRefUrl] = useState<string | null>(null);
+    const [toastNotices, setToastNotices] = useState<ToastNotice[]>([]);
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const pollGraceUntilRef = useRef(0);
+    const optimisticGenerationsRef = useRef<Generation[]>([]);
+    const seenImageErrorIdsRef = useRef<Set<string>>(new Set());
+    const hasTrackedInitialErrorsRef = useRef(false);
 
     // Multi-select state
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+    const pushToast = useCallback((message: string) => {
+        const toastId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+        setToastNotices((prev) => [...prev, { id: toastId, message }].slice(-3));
+
+        setTimeout(() => {
+            setToastNotices((prev) => prev.filter((notice) => notice.id !== toastId));
+        }, 4500);
+    }, []);
+
     const loadGenerations = useCallback(async () => {
         const res = await fetch(`/api/generations?project_id=${id}`);
+        if (!res.ok) {
+            throw new Error('Failed to load generations');
+        }
         const data: Generation[] = await res.json();
+        const imageErrors = data.filter((generation) => generation.type === 'image' && generation.status === 'error');
+        const imageErrorIds = new Set(imageErrors.map((generation) => generation.id));
+
+        if (!hasTrackedInitialErrorsRef.current) {
+            seenImageErrorIdsRef.current = imageErrorIds;
+            hasTrackedInitialErrorsRef.current = true;
+        } else {
+            const newImageErrors = imageErrors.filter((generation) => !seenImageErrorIdsRef.current.has(generation.id));
+
+            if (newImageErrors.length > 0) {
+                newImageErrors.forEach((generation) => {
+                    seenImageErrorIdsRef.current.add(generation.id);
+                });
+
+                pushToast(
+                    newImageErrors.length === 1
+                        ? 'Une image n’a pas pu être générée.'
+                        : `${newImageErrors.length} images n’ont pas pu être générées.`
+                );
+            }
+
+            seenImageErrorIdsRef.current = new Set([
+                ...seenImageErrorIdsRef.current,
+                ...imageErrorIds,
+            ]);
+        }
+
+        const persistedRequestKeys = new Set(
+            data
+                .map(getClientRequestKey)
+                .filter((key): key is string => key !== null)
+        );
         setGenerations(data);
+        setOptimisticGenerations((prev) =>
+            prev.filter((generation) => {
+                const requestKey = getClientRequestKey(generation);
+                return !requestKey || !persistedRequestKeys.has(requestKey);
+            })
+        );
         return data;
-    }, [id]);
+    }, [id, pushToast]);
+
+    const stopPolling = useCallback(() => {
+        if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+        }
+    }, []);
+
+    const startPolling = useCallback(() => {
+        if (pollRef.current) return;
+
+        pollRef.current = setInterval(async () => {
+            try {
+                const pollHeaders: Record<string, string> = {};
+                const openaiKey = typeof window !== 'undefined' ? localStorage.getItem('openai_key') : null;
+                const googleKey = typeof window !== 'undefined' ? localStorage.getItem('google_key') : null;
+                if (openaiKey) pollHeaders['x-openai-key'] = openaiKey;
+                if (googleKey) pollHeaders['x-google-key'] = googleKey;
+
+                await fetch('/api/generate/video/poll', { headers: pollHeaders }).catch(() => { });
+
+                const data = await loadGenerations();
+                const hasPersistedInFlight = data.some(isGenerationInFlight);
+                const hasOptimisticInFlight = optimisticGenerationsRef.current.length > 0;
+                const withinGraceWindow = Date.now() < pollGraceUntilRef.current;
+
+                if (!hasPersistedInFlight && !hasOptimisticInFlight && !withinGraceWindow) {
+                    stopPolling();
+                }
+            } catch (error) {
+                console.error('Failed to poll generations:', error);
+            }
+        }, 4000);
+    }, [loadGenerations, stopPolling]);
 
     useEffect(() => {
         async function init() {
@@ -48,37 +165,45 @@ export default function ProjectPage() {
     }, [id, loadGenerations]);
 
     useEffect(() => {
-        function startPoll() {
-            if (pollRef.current) clearInterval(pollRef.current);
-            pollRef.current = setInterval(async () => {
-                const pollHeaders: Record<string, string> = {};
-                const openaiKey = typeof window !== 'undefined' ? localStorage.getItem('openai_key') : null;
-                const googleKey = typeof window !== 'undefined' ? localStorage.getItem('google_key') : null;
-                if (openaiKey) pollHeaders['x-openai-key'] = openaiKey;
-                if (googleKey) pollHeaders['x-google-key'] = googleKey;
-                await fetch('/api/generate/video/poll', { headers: pollHeaders }).catch(() => { });
-                const data = await loadGenerations();
-                const stillGenerating = data.some((g) => g.status === 'generating' || g.status === 'pending');
-                if (!stillGenerating && pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-            }, 4000);
-        }
-        const hasGenerating = generations.some((g) => g.status === 'generating' || g.status === 'pending');
-        if (hasGenerating) startPoll();
-        return () => { if (pollRef.current) clearInterval(pollRef.current); };
-    }, [generations, loadGenerations]);
+        optimisticGenerationsRef.current = optimisticGenerations;
+    }, [optimisticGenerations]);
 
-    function handleGenerationStarted() {
-        setTimeout(loadGenerations, 500);
-        if (pollRef.current) clearInterval(pollRef.current);
-        pollRef.current = setInterval(async () => {
-            const data = await loadGenerations();
-            const still = data.some((g) => g.status === 'generating' || g.status === 'pending');
-            if (!still && pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-        }, 4000);
+    useEffect(() => {
+        const hasPersistedInFlight = generations.some(isGenerationInFlight);
+        const hasOptimisticInFlight = optimisticGenerations.length > 0;
+        const withinGraceWindow = Date.now() < pollGraceUntilRef.current;
+
+        if (hasPersistedInFlight || hasOptimisticInFlight || withinGraceWindow) {
+            startPolling();
+        } else {
+            stopPolling();
+        }
+    }, [generations, optimisticGenerations.length, startPolling, stopPolling]);
+
+    useEffect(() => stopPolling, [stopPolling]);
+
+    function handleGenerationStarted(newOptimisticGenerations: Generation[] = []) {
+        pollGraceUntilRef.current = Date.now() + 15000;
+
+        if (newOptimisticGenerations.length > 0) {
+            setOptimisticGenerations((prev) => [...newOptimisticGenerations, ...prev]);
+        }
+
+        startPolling();
+        void loadGenerations().catch(() => { });
+    }
+
+    function handleGenerationFailed(clientRequestId: string) {
+        setOptimisticGenerations((prev) =>
+            prev.filter((generation) => generation.metadata?.client_request_id !== clientRequestId)
+        );
+        void loadGenerations().catch(() => { });
     }
 
     function handleDeleted(deletedId: string) {
         setGenerations((prev) => prev.filter((g) => g.id !== deletedId));
+        setOptimisticGenerations((prev) => prev.filter((g) => g.id !== deletedId));
+        seenImageErrorIdsRef.current.delete(deletedId);
         setSelectedIds((prev) => {
             const next = new Set(Array.from(prev));
             next.delete(deletedId);
@@ -104,7 +229,7 @@ export default function ProjectPage() {
     }
 
     function handleSelectAll() {
-        const doneGens = generations.filter((g) => g.status === 'done');
+        const doneGens = displayGenerations.filter((g) => g.status === 'done');
         if (selectedIds.size === doneGens.length) {
             setSelectedIds(new Set());
         } else {
@@ -113,7 +238,7 @@ export default function ProjectPage() {
     }
 
     async function handleDownloadSelected() {
-        const selectedGens = generations.filter((g) => selectedIds.has(g.id) && g.output_url);
+        const selectedGens = displayGenerations.filter((g) => selectedIds.has(g.id) && g.output_url);
         for (const gen of selectedGens) {
             const res = await fetch(gen.output_url!);
             const blob = await res.blob();
@@ -133,11 +258,25 @@ export default function ProjectPage() {
         const ids = Array.from(selectedIds);
         await Promise.all(ids.map((gid) => fetch(`/api/generations/${gid}`, { method: 'DELETE' })));
         setGenerations((prev) => prev.filter((g) => !selectedIds.has(g.id)));
+        setOptimisticGenerations((prev) => prev.filter((g) => !selectedIds.has(g.id)));
         if (expandedGen && selectedIds.has(expandedGen.id)) setExpandedGen(null);
         setSelectedIds(new Set());
     }
 
     const hasSelection = selectedIds.size > 0;
+    const persistedRequestKeys = new Set(
+        generations
+            .map(getClientRequestKey)
+            .filter((key): key is string => key !== null)
+    );
+    const visibleGenerations = generations.filter((generation) => generation.status !== 'error');
+    const displayGenerations = [
+        ...optimisticGenerations.filter((generation) => {
+            const requestKey = getClientRequestKey(generation);
+            return !requestKey || !persistedRequestKeys.has(requestKey);
+        }),
+        ...visibleGenerations,
+    ];
 
     return (
         <div className="flex h-screen overflow-hidden" style={{ background: '#F9FAFB' }}>
@@ -181,7 +320,7 @@ export default function ProjectPage() {
                     ) : (
                         <div style={{ paddingBottom: 120 }}>
                             <GenerationsGrid
-                                generations={generations}
+                                generations={displayGenerations}
                                 onCardClick={setExpandedGen}
                                 onDeleted={handleDeleted}
                                 selectedIds={selectedIds}
@@ -209,7 +348,7 @@ export default function ProjectPage() {
                                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition-colors"
                                         >
                                             <CheckSquare className="w-3.5 h-3.5" />
-                                            {selectedIds.size === generations.filter((g) => g.status === 'done').length ? 'Tout désélectionner' : 'Tout sélectionner'}
+                                            {selectedIds.size === displayGenerations.filter((g) => g.status === 'done').length ? 'Tout désélectionner' : 'Tout sélectionner'}
                                         </button>
 
                                         <div className="flex-1" />
@@ -249,6 +388,7 @@ export default function ProjectPage() {
                                     preprompts={preprompts}
                                     actors={actors}
                                     onGenerationStarted={handleGenerationStarted}
+                                    onGenerationFailed={handleGenerationFailed}
                                     editReferenceUrl={editRefUrl}
                                     onEditReferenceHandled={() => setEditRefUrl(null)}
                                 />
@@ -258,10 +398,25 @@ export default function ProjectPage() {
                 </div>
             </div>
 
+            {toastNotices.length > 0 && (
+                <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+                    {toastNotices.map((notice) => (
+                        <div
+                            key={notice.id}
+                            className="flex items-start gap-2 rounded-xl border border-red-100 bg-white/95 px-3 py-2 shadow-lg backdrop-blur-sm"
+                            style={{ minWidth: 260, maxWidth: 340 }}
+                        >
+                            <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                            <p className="text-sm text-gray-700 leading-snug">{notice.message}</p>
+                        </div>
+                    ))}
+                </div>
+            )}
+
             {expandedGen && (
                 <ExpandedView
                     generation={expandedGen}
-                    allGenerations={generations.filter((g) => g.status === 'done')}
+                    allGenerations={displayGenerations.filter((g) => g.status === 'done')}
                     onClose={() => setExpandedGen(null)}
                     onNavigate={setExpandedGen}
                     onDeleted={handleDeleted}

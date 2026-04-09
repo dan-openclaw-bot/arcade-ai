@@ -7,6 +7,62 @@ import { getAuthClient, getApiKey, isAdmin } from '@/lib/auth';
 import { generateSingleImage } from '@/lib/gemini';
 import { IMAGE_MODELS } from '@/lib/types';
 
+function getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
+
+function isCapacityErrorMessage(message: string): boolean {
+    const lower = message.toLowerCase();
+    return (
+        lower.includes('resource exhausted')
+        || lower.includes('resource has been exhausted')
+        || lower.includes('quota')
+        || lower.includes('capacity')
+        || lower.includes('too many requests')
+        || lower.includes('429')
+        || lower.includes('503')
+    );
+}
+
+function formatGenerationError(error: unknown): string {
+    const message = getErrorMessage(error);
+    if (isCapacityErrorMessage(message)) {
+        return 'Google image capacity is temporarily saturated. Automatic retries were exhausted; please try again in a moment.';
+    }
+    return message;
+}
+
+function getImageGenerationConcurrency(model: string): number {
+    if (model === 'gemini-3-pro-image-preview') return 1;
+    if (model.startsWith('gemini-')) return 2;
+    return 4;
+}
+
+async function mapWithConcurrency<T, R>(
+    items: T[],
+    concurrency: number,
+    worker: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+    const results = new Array<R>(items.length);
+    let cursor = 0;
+
+    async function runNext(): Promise<void> {
+        const index = cursor;
+        cursor += 1;
+
+        if (index >= items.length) return;
+
+        results[index] = await worker(items[index], index);
+        await runNext();
+    }
+
+    await Promise.all(
+        Array.from({ length: Math.min(concurrency, items.length) }, () => runNext())
+    );
+
+    return results;
+}
+
 export async function POST(req: NextRequest) {
     try {
         const { user, supabase } = await getAuthClient();
@@ -25,6 +81,7 @@ export async function POST(req: NextRequest) {
             model,
             aspect_ratio = '1:1',
             count = 1,
+            client_request_id,
             preprompt_id,
             actor_id,
             reference_image_urls,
@@ -42,6 +99,8 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Invalid model' }, { status: 400 });
         }
 
+        const generationConcurrency = Math.min(getImageGenerationConcurrency(model), count);
+
         // Build final prompt with preprompt if given
         let finalPrompt = prompt;
         if (preprompt_id) {
@@ -56,7 +115,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Create placeholder generation records
-        const generationInserts = Array.from({ length: count }, () => ({
+        const generationInserts = Array.from({ length: count }, (_, index) => ({
             project_id,
             type: 'image',
             prompt,
@@ -64,8 +123,14 @@ export async function POST(req: NextRequest) {
             actor_id: actor_id || null,
             model,
             aspect_ratio,
-            status: 'generating',
-            metadata: { model_name: modelInfo.name },
+            status: index < generationConcurrency ? 'generating' : 'pending',
+            metadata: {
+                model_name: modelInfo.name,
+                ...(client_request_id ? {
+                    client_request_id,
+                    client_request_index: index,
+                } : {}),
+            },
         }));
 
         const { data: records, error: insertError } = await supabase
@@ -79,11 +144,18 @@ export async function POST(req: NextRequest) {
 
         const serviceSupabase = createServerSupabaseClient();
 
-        // Generate all images in PARALLEL, but each one uploads + saves to DB
-        // as soon as it's ready — no waiting for the others
-        const updatedRecords = await Promise.all(
-            records.map(async (record) => {
+        const updatedRecords = await mapWithConcurrency(
+            records,
+            generationConcurrency,
+            async (record) => {
                 try {
+                    if (record.status === 'pending') {
+                        await supabase
+                            .from('generations')
+                            .update({ status: 'generating', updated_at: new Date().toISOString() })
+                            .eq('id', record.id);
+                    }
+
                     const imageData = await generateSingleImage(
                         finalPrompt, model, aspect_ratio,
                         reference_image_urls || [], quality_suffix, negative_prompt, googleKey || undefined
@@ -132,14 +204,14 @@ export async function POST(req: NextRequest) {
 
                     return updated || { ...record, status: 'done' };
                 } catch (genError: unknown) {
-                    // This image failed but others continue in parallel
+                    const errorMessage = formatGenerationError(genError);
                     await supabase
                         .from('generations')
-                        .update({ status: 'error', error_message: String(genError), updated_at: new Date().toISOString() })
+                        .update({ status: 'error', error_message: errorMessage, updated_at: new Date().toISOString() })
                         .eq('id', record.id);
-                    return { ...record, status: 'error' };
+                    return { ...record, status: 'error', error_message: errorMessage };
                 }
-            })
+            }
         );
 
         return NextResponse.json({ generations: updatedRecords }, { status: 201 });
