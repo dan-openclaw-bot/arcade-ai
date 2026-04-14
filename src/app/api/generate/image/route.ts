@@ -10,49 +10,12 @@ import { generateSeedreamImage, isBytePlusModel } from '@/lib/byteplus';
 import { IMAGE_MODELS } from '@/lib/types';
 
 /**
- * Compress image with Sharp — resize to max 2048px, JPEG 82% quality (mozjpeg).
- * Also enforces target aspect ratio by cropping to center if the model
- * didn't respect it (common with Gemini + reference images).
+ * Compress image with Sharp — resize to max 2048px, JPEG 82% quality (mozjpeg)
+ * Typically reduces 2-5 MB images down to 200-500 KB
  */
-async function compressImage(base64: string, targetAspectRatio?: string): Promise<{ base64: string; mimeType: string }> {
+async function compressImage(base64: string): Promise<{ base64: string; mimeType: string }> {
     const input = Buffer.from(base64, 'base64');
-    let pipeline = sharp(input);
-
-    // Enforce aspect ratio if the output doesn't match the target
-    if (targetAspectRatio && targetAspectRatio !== '1:1') {
-        const metadata = await sharp(input).metadata();
-        if (metadata.width && metadata.height) {
-            const currentRatio = metadata.width / metadata.height;
-            const targetRatioMap: Record<string, number> = {
-                '16:9': 16 / 9,
-                '9:16': 9 / 16,
-            };
-            const targetNum = targetRatioMap[targetAspectRatio];
-
-            if (targetNum) {
-                const tolerance = 0.15;
-                const diff = Math.abs(currentRatio - targetNum) / targetNum;
-
-                if (diff > tolerance) {
-                    // Crop to target ratio from center
-                    let cropW = metadata.width;
-                    let cropH = metadata.height;
-                    if (currentRatio > targetNum) {
-                        // Too wide → narrow it
-                        cropW = Math.round(metadata.height * targetNum);
-                    } else {
-                        // Too tall → shorten it
-                        cropH = Math.round(metadata.width / targetNum);
-                    }
-                    const left = Math.round((metadata.width - cropW) / 2);
-                    const top = Math.round((metadata.height - cropH) / 2);
-                    pipeline = pipeline.extract({ left, top, width: cropW, height: cropH });
-                }
-            }
-        }
-    }
-
-    const compressed = await pipeline
+    const compressed = await sharp(input)
         .resize(2048, 2048, { fit: 'inside', withoutEnlargement: true })
         .jpeg({ quality: 82, mozjpeg: true })
         .toBuffer();
@@ -249,8 +212,8 @@ export async function POST(req: NextRequest) {
                         return { ...record, status: 'error' };
                     }
 
-                    // Compress with Sharp + enforce aspect ratio (2-5 MB → 200-500 KB)
-                    const compressed = await compressImage(imageData.base64, aspect_ratio);
+                    // Compress with Sharp before uploading (2-5 MB → 200-500 KB)
+                    const compressed = await compressImage(imageData.base64);
 
                     // Upload immediately after THIS image is generated
                     const buffer = Buffer.from(compressed.base64, 'base64');

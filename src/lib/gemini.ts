@@ -219,9 +219,14 @@ export async function generateImages(
         const actualCount = Math.min(count, 4);
 
         if (useVertex) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const generationConfig: any = { responseModalities: ['TEXT', 'IMAGE'] };
+            if (mappedRatio !== '1:1') {
+                generationConfig.imageGenerationConfig = { aspectRatio: mappedRatio };
+            }
             const body = {
                 contents: [{ role: 'user', parts: contents }],
-                generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+                generationConfig,
             };
 
             const responses = await Promise.all(
@@ -248,13 +253,18 @@ export async function generateImages(
 
         // Direct API for users with their own key
         const ai = getGenAI(apiKey);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const directConfig: any = { responseModalities: ['Text', 'Image'] };
+        if (mappedRatio !== '1:1') {
+            directConfig.imageConfig = { aspectRatio: mappedRatio };
+        }
         const responses = [];
         for (let index = 0; index < actualCount; index += 1) {
             const response = await withRetry(`Gemini API ${model}`, () =>
                 ai.models.generateContent({
                     model,
                     contents,
-                    config: { responseModalities: ['Text', 'Image'] },
+                    config: directConfig,
                 })
             );
             responses.push(response);
