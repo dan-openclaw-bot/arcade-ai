@@ -145,6 +145,14 @@ export default function ExpandedView({ generation, allGenerations, preprompts, o
             style={{ background: 'rgba(0,0,0,0.85)' }}
             onClick={onClose}
         >
+            {/* Close button — top-right, always visible */}
+            <button
+                onClick={onClose}
+                className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur flex items-center justify-center text-white transition-all"
+            >
+                <X className="w-5 h-5" />
+            </button>
+
             {/* Nav prev */}
             <button
                 onClick={(e) => { e.stopPropagation(); prev && onNavigate(prev); }}
@@ -231,9 +239,6 @@ export default function ExpandedView({ generation, allGenerations, preprompts, o
                             </button>
                         )}
                     </div>
-                    <button onClick={onClose} className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 text-xs transition-colors">
-                        ✕
-                    </button>
                 </div>
 
                 {/* Details */}
