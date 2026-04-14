@@ -145,14 +145,6 @@ export default function ExpandedView({ generation, allGenerations, preprompts, o
             style={{ background: 'rgba(0,0,0,0.85)' }}
             onClick={onClose}
         >
-            {/* Close button — top-right, always visible */}
-            <button
-                onClick={onClose}
-                className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur flex items-center justify-center text-white transition-all"
-            >
-                <X className="w-5 h-5" />
-            </button>
-
             {/* Nav prev */}
             <button
                 onClick={(e) => { e.stopPropagation(); prev && onNavigate(prev); }}
@@ -200,45 +192,52 @@ export default function ExpandedView({ generation, allGenerations, preprompts, o
                 style={{ background: '#fff', borderLeft: '1px solid #e5e7eb' }}
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* Header */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                    <div className="flex items-center gap-2">
+                {/* Header — row 1: close + download */}
+                <div className="flex items-center justify-between px-4 pt-3 pb-2">
+                    <button
+                        onClick={onClose}
+                        className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={handleDownload}
+                        disabled={!generation.output_url}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 hover:bg-gray-700 text-white text-sm font-medium transition-colors disabled:opacity-40"
+                    >
+                        <Download className="w-3.5 h-3.5" />
+                        Download HD
+                    </button>
+                </div>
+                {/* Header — row 2: actions */}
+                <div className="flex items-center gap-2 px-4 pb-3 border-b border-gray-100">
+                    <button
+                        onClick={handleDelete}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors text-sm"
+                    >
+                        <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                    {generation.type === 'image' && generation.output_url && onEdit && (
                         <button
-                            onClick={handleDownload}
-                            disabled={!generation.output_url}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 hover:bg-gray-700 text-white text-sm font-medium transition-colors disabled:opacity-40"
+                            onClick={() => { onEdit(generation.output_url!); onClose(); }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-colors"
                         >
-                            <Download className="w-3.5 h-3.5" />
-                            Download HD
+                            <Pencil className="w-3.5 h-3.5" />
+                            Edit
                         </button>
+                    )}
+                    {generation.type === 'image' && generation.output_url && onGenerateFormats && (
                         <button
-                            onClick={handleDelete}
-                            className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                            onClick={() => setShowFormatsModal(true)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-sm font-medium transition-colors"
                         >
-                            <Trash2 className="w-4 h-4" />
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                <rect x="3" y="5" width="7" height="14" rx="1.5" />
+                                <rect x="14" y="8" width="7" height="8" rx="1.5" />
+                            </svg>
+                            Formats
                         </button>
-                        {generation.type === 'image' && generation.output_url && onEdit && (
-                            <button
-                                onClick={() => { onEdit(generation.output_url!); onClose(); }}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-colors"
-                            >
-                                <Pencil className="w-3.5 h-3.5" />
-                                Edit
-                            </button>
-                        )}
-                        {generation.type === 'image' && generation.output_url && onGenerateFormats && (
-                            <button
-                                onClick={() => setShowFormatsModal(true)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-sm font-medium transition-colors"
-                            >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                    <rect x="3" y="5" width="7" height="14" rx="1.5" />
-                                    <rect x="14" y="8" width="7" height="8" rx="1.5" />
-                                </svg>
-                                Formats
-                            </button>
-                        )}
-                    </div>
+                    )}
                 </div>
 
                 {/* Details */}
