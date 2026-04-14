@@ -60,11 +60,10 @@ export default function ExpandedView({ generation, allGenerations, preprompts, o
     useEffect(() => {
         if (!showFormatsModal) return;
 
-        const defaultPreprompt = getDefaultFormatPreprompt(preprompts);
         setSelectedFormatRatios(['9:16', '16:9']);
-        setSelectedFormatPrepromptId(defaultPreprompt?.id || null);
-        setFormatPrepromptContent(defaultPreprompt?.content || DEFAULT_FORMAT_PREPROMPT);
-    }, [showFormatsModal, preprompts]);
+        setSelectedFormatPrepromptId(null);
+        setFormatPrepromptContent(DEFAULT_FORMAT_PREPROMPT);
+    }, [showFormatsModal]);
 
     async function copyPrompt() {
         await navigator.clipboard.writeText(generation.prompt);
