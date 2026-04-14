@@ -191,17 +191,25 @@ export default function ProjectPage() {
         }, 4000);
     }, [loadGenerations, stopPolling]);
 
+    // Fetch global data (preprompts, actors) ONCE — not on every project switch
+    const globalLoadedRef = useRef(false);
+    useEffect(() => {
+        if (globalLoadedRef.current) return;
+        globalLoadedRef.current = true;
+        Promise.all([fetch('/api/preprompts'), fetch('/api/actors')])
+            .then(async ([ppRes, aRes]) => {
+                setPreprompts(await ppRes.json());
+                setActors(await aRes.json());
+            });
+    }, []);
+
+    // Fetch project-specific data when switching projects
     useEffect(() => {
         async function init() {
             setLoading(true);
-            const [pRes, ppRes, aRes] = await Promise.all([
-                fetch(`/api/projects/${id}`),
-                fetch('/api/preprompts'),
-                fetch('/api/actors'),
-            ]);
+            hasTrackedInitialErrorsRef.current = false;
+            const pRes = await fetch(`/api/projects/${id}`);
             setProject(await pRes.json());
-            setPreprompts(await ppRes.json());
-            setActors(await aRes.json());
             await loadGenerations();
             setLoading(false);
         }

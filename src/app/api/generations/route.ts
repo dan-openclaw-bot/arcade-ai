@@ -10,7 +10,8 @@ export async function GET(req: NextRequest) {
         let query = supabase
             .from('generations')
             .select('*, preprompt:preprompts(id, name, content), actor:actors(id, name, image_url)')
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: false })
+            .limit(100);
 
         if (projectId) {
             query = query.eq('project_id', projectId);
