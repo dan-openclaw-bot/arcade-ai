@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Generation } from '@/lib/types';
 import { Download, MoreHorizontal, Pencil, Clapperboard, AlertCircle, Check, User, Trash2, Link } from 'lucide-react';
 import { IMAGE_MODELS, VIDEO_MODELS } from '@/lib/types';
@@ -132,11 +133,12 @@ export default function GenerationCard({ generation, onClick, onDeleted, isSelec
             {isDone && generation.output_url && (
                 <>
                     {generation.type === 'image' ? (
-                        <img
+                        <Image
                             src={generation.output_url}
                             alt={generation.prompt}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                         />
                     ) : (
                         <video

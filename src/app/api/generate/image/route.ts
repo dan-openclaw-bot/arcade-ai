@@ -2,11 +2,25 @@ export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
+import sharp from 'sharp';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { getAuthClient, getApiKey, isAdmin, getProviderForModel } from '@/lib/auth';
 import { generateSingleImage } from '@/lib/gemini';
 import { generateSeedreamImage, isBytePlusModel } from '@/lib/byteplus';
 import { IMAGE_MODELS } from '@/lib/types';
+
+/**
+ * Compress image with Sharp — resize to max 2048px, JPEG 82% quality (mozjpeg)
+ * Typically reduces 2-5 MB images down to 200-500 KB
+ */
+async function compressImage(base64: string): Promise<{ base64: string; mimeType: string }> {
+    const input = Buffer.from(base64, 'base64');
+    const compressed = await sharp(input)
+        .resize(2048, 2048, { fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 82, mozjpeg: true })
+        .toBuffer();
+    return { base64: compressed.toString('base64'), mimeType: 'image/jpeg' };
+}
 
 function getErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
@@ -198,15 +212,18 @@ export async function POST(req: NextRequest) {
                         return { ...record, status: 'error' };
                     }
 
+                    // Compress with Sharp before uploading (2-5 MB → 200-500 KB)
+                    const compressed = await compressImage(imageData.base64);
+
                     // Upload immediately after THIS image is generated
-                    const buffer = Buffer.from(imageData.base64, 'base64');
-                    const ext = imageData.mimeType === 'image/png' ? 'png' : 'jpg';
+                    const buffer = Buffer.from(compressed.base64, 'base64');
+                    const ext = 'jpg';
                     const filename = `${project_id}/${record.id}.${ext}`;
 
                     const { error: uploadError } = await serviceSupabase.storage
                         .from('generations')
                         .upload(filename, buffer, {
-                            contentType: imageData.mimeType,
+                            contentType: compressed.mimeType,
                             upsert: true,
                         });
 

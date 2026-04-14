@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import { Generation, Preprompt, AspectRatio, GenerateImageFormatVariantsRequest } from '@/lib/types';
 import { X, Download, Copy, Check, ChevronLeft, ChevronRight, Trash2, Pencil, User } from 'lucide-react';
 import { IMAGE_MODELS, VIDEO_MODELS } from '@/lib/types';
@@ -169,11 +170,16 @@ export default function ExpandedView({ generation, allGenerations, preprompts, o
             >
                 {generation.output_url && generation.status === 'done' ? (
                     generation.type === 'image' ? (
-                        <img
-                            src={generation.output_url}
-                            alt={generation.prompt}
-                            className="max-h-full max-w-full object-contain rounded-2xl shadow-2xl"
-                        />
+                        <div className="relative w-full h-full">
+                            <Image
+                                src={generation.output_url}
+                                alt={generation.prompt}
+                                fill
+                                className="object-contain rounded-2xl shadow-2xl"
+                                sizes="(max-width: 768px) 100vw, 60vw"
+                                priority
+                            />
+                        </div>
                     ) : (
                         <video
                             src={generation.output_url}
