@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { KeyRound, ExternalLink, Eye, EyeOff, CheckCircle, Loader2, X } from 'lucide-react';
 
 interface MissingKeyModalProps {
-    provider: 'openai' | 'google';
+    provider: 'openai' | 'google' | 'byteplus';
     onClose: () => void;
     onKeyConfigured: () => void; // Called after key is saved, so generation can retry
 }
@@ -26,6 +26,14 @@ const PROVIDER_INFO = {
         getUrl: 'https://aistudio.google.com/apikey',
         models: 'Gemini, Imagen, Veo',
     },
+    byteplus: {
+        label: 'BytePlus',
+        storageKey: 'byteplus_key',
+        placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+        testEndpoint: 'https://ark.ap-southeast.bytepluses.com/api/v3/models',
+        getUrl: 'https://console.byteplus.com/ark',
+        models: 'Nano Banana Pro — Seedream',
+    },
 };
 
 export default function MissingKeyModal({ provider, onClose, onKeyConfigured }: MissingKeyModalProps) {
@@ -43,7 +51,7 @@ export default function MissingKeyModal({ provider, onClose, onKeyConfigured }: 
         try {
             let testUrl = info.testEndpoint;
             const headers: Record<string, string> = {};
-            if (provider === 'openai') {
+            if (provider === 'openai' || provider === 'byteplus') {
                 headers['Authorization'] = `Bearer ${key.trim()}`;
             } else {
                 testUrl = info.testEndpoint + key.trim();

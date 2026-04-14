@@ -6,6 +6,9 @@ const IMAGE_RETRY_BASE_DELAY_MS = 1500;
 
 // Vertex AI config
 const VERTEX_API_KEY = process.env.VERTEX_API_KEY || '';
+const VERTEX_PROJECT = process.env.VERTEX_PROJECT_NUMBER || process.env.VERTEX_PROJECT_ID || '';
+const VERTEX_LOCATION = process.env.VERTEX_LOCATION || 'global';
+const VERTEX_REQUEST_TYPE = (process.env.VERTEX_REQUEST_TYPE || '').trim().toLowerCase();
 const VERTEX_REGIONS = (process.env.VERTEX_REGIONS || 'us-central1,europe-west1,europe-west4').split(',');
 // Gemini image models only work on the global endpoint
 const VERTEX_GLOBAL = 'https://aiplatform.googleapis.com/v1/publishers/google/models';
@@ -20,6 +23,30 @@ function getGenAI(apiKey?: string): GoogleGenAI {
 
 function shouldUseVertex(userApiKey?: string): boolean {
     return !userApiKey && !!VERTEX_API_KEY;
+}
+
+function shouldUseProjectScopedVertex(): boolean {
+    return !!VERTEX_PROJECT;
+}
+
+function getVertexRequestHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+    };
+
+    if (VERTEX_REQUEST_TYPE === 'dedicated' || VERTEX_REQUEST_TYPE === 'shared') {
+        headers['X-Vertex-AI-LLM-Request-Type'] = VERTEX_REQUEST_TYPE;
+    }
+
+    return headers;
+}
+
+function getVertexGeminiUrl(model: string, endpoint: string): string {
+    if (shouldUseProjectScopedVertex()) {
+        return `https://aiplatform.googleapis.com/v1/projects/${VERTEX_PROJECT}/locations/${VERTEX_LOCATION}/publishers/google/models/${model}:${endpoint}?key=${VERTEX_API_KEY}`;
+    }
+
+    return `${VERTEX_GLOBAL}/${model}:${endpoint}?key=${VERTEX_API_KEY}`;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -74,12 +101,12 @@ async function withRetry<T>(label: string, task: () => Promise<T>, attempts: num
  */
 async function vertexFetch(model: string, body: Record<string, unknown>, endpoint: string = 'generateContent'): Promise<Record<string, unknown>> {
     if (model.startsWith('gemini-')) {
-        // Gemini image models → global endpoint only
+        // Gemini image models → global endpoint only. For PT, use the project-scoped global endpoint.
         return withRetry(`Vertex AI ${model}`, async () => {
-            const url = `${VERTEX_GLOBAL}/${model}:${endpoint}?key=${VERTEX_API_KEY}`;
+            const url = getVertexGeminiUrl(model, endpoint);
             const res = await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getVertexRequestHeaders(),
                 body: JSON.stringify(body),
             });
             const data = await res.json();
@@ -98,7 +125,7 @@ async function vertexFetch(model: string, body: Record<string, unknown>, endpoin
         try {
             const res = await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getVertexRequestHeaders(),
                 body: JSON.stringify(body),
             });
             const data = await res.json();

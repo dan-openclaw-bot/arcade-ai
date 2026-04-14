@@ -33,6 +33,13 @@ const API_KEYS: KeyConfig[] = [
         testEndpoint: 'https://generativelanguage.googleapis.com/v1beta/models?key=',
         description: 'Requis pour Gemini, Imagen, Veo (images & vidéos Google)',
     },
+    {
+        label: 'BytePlus (Seedream)',
+        storageKey: 'byteplus_key',
+        placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+        testEndpoint: 'https://ark.ap-southeast.bytepluses.com/api/v3/models',
+        description: 'Requis pour Nano Banana Pro — Seedream (images BytePlus)',
+    },
 ];
 
 export default function SettingsPage() {
@@ -86,7 +93,7 @@ export default function SettingsPage() {
             const headers: Record<string, string> = {
                 'Content-Type': 'application/json'
             };
-            if (config.storageKey === 'openai_key') {
+            if (config.storageKey === 'openai_key' || config.storageKey === 'byteplus_key') {
                 headers['Authorization'] = `Bearer ${key}`;
             } else {
                 testUrl = config.testEndpoint + key;

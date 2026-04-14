@@ -242,7 +242,7 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
     const selectedActors = actors.filter((a) => selectedActorIds.includes(a.id));
 
     // Missing key modal state
-    const [missingKeyProvider, setMissingKeyProvider] = useState<'openai' | 'google' | null>(null);
+    const [missingKeyProvider, setMissingKeyProvider] = useState<'openai' | 'google' | 'byteplus' | null>(null);
 
     // Load total spent from localStorage
     useEffect(() => {
@@ -387,8 +387,10 @@ export default function PromptBar({ projectId, preprompts, actors, onGenerationS
                     const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
                     const openaiKey = localStorage.getItem('openai_key');
                     const googleKey = localStorage.getItem('google_key');
+                    const byteplusKey = localStorage.getItem('byteplus_key');
                     if (openaiKey) apiHeaders['x-openai-key'] = openaiKey;
                     if (googleKey) apiHeaders['x-google-key'] = googleKey;
+                    if (byteplusKey) apiHeaders['x-byteplus-key'] = byteplusKey;
                     const res = await fetch('/api/generate/image', {
                         method: 'POST', headers: apiHeaders, body: JSON.stringify(body),
                     });

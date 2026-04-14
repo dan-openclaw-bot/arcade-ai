@@ -3,8 +3,9 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { getAuthClient, getApiKey, isAdmin } from '@/lib/auth';
+import { getAuthClient, getApiKey, isAdmin, getProviderForModel } from '@/lib/auth';
 import { generateSingleImage } from '@/lib/gemini';
+import { generateSeedreamImage, isBytePlusModel } from '@/lib/byteplus';
 import { IMAGE_MODELS } from '@/lib/types';
 
 function getErrorMessage(error: unknown): string {
@@ -67,14 +68,32 @@ export async function POST(req: NextRequest) {
     try {
         const { user, supabase } = await getAuthClient();
 
-        // Admin uses Vertex AI (no API key needed), users need their own key
+        const body = await req.json();
+
+        // Determine provider from model
+        const provider = getProviderForModel(body.model || '');
         const adminUser = isAdmin(user.id);
-        const googleKey = adminUser ? null : getApiKey(req, 'google', user.id);
-        if (!adminUser && !googleKey) {
-            return NextResponse.json({ error: 'Google API key required. Set it in Settings.', missingKeyProvider: 'google' }, { status: 400 });
+
+        // BytePlus models use server-side key (available to all users)
+        let googleKey: string | null = null;
+        let byteplusKey: string | null = null;
+
+        if (provider === 'byteplus') {
+            // Admin uses server-side key, users must provide their own
+            byteplusKey = adminUser
+                ? (process.env.BYTEPLUS_API_KEY?.trim() || null)
+                : getApiKey(req, 'byteplus', user.id);
+            if (!byteplusKey) {
+                return NextResponse.json({ error: 'Clé API BytePlus requise. Configurez-la dans Paramètres.', missingKeyProvider: 'byteplus' }, { status: 400 });
+            }
+        } else {
+            // Admin uses Vertex AI (no API key needed), users need their own key
+            googleKey = adminUser ? null : getApiKey(req, 'google', user.id);
+            if (!adminUser && !googleKey) {
+                return NextResponse.json({ error: 'Google API key required. Set it in Settings.', missingKeyProvider: 'google' }, { status: 400 });
+            }
         }
 
-        const body = await req.json();
         const {
             project_id,
             prompt,
@@ -161,10 +180,15 @@ export async function POST(req: NextRequest) {
                             .eq('id', record.id);
                     }
 
-                    const imageData = await generateSingleImage(
-                        finalPrompt, model, aspect_ratio,
-                        reference_image_urls || [], quality_suffix, negative_prompt, googleKey || undefined
-                    );
+                    const imageData = isBytePlusModel(model)
+                        ? await generateSeedreamImage(
+                            finalPrompt, aspect_ratio,
+                            reference_image_urls || [], byteplusKey || undefined
+                        )
+                        : await generateSingleImage(
+                            finalPrompt, model, aspect_ratio,
+                            reference_image_urls || [], quality_suffix, negative_prompt, googleKey || undefined
+                        );
 
                     if (!imageData?.base64) {
                         await supabase

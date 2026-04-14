@@ -35,17 +35,19 @@ export function isAdmin(userId: string): boolean {
  */
 export function getApiKey(
     req: NextRequest,
-    provider: 'openai' | 'google',
+    provider: 'openai' | 'google' | 'byteplus',
     userId: string,
 ): string | null {
     // Admin always uses .env keys
     if (isAdmin(userId)) {
         if (provider === 'openai') return process.env.OPENAI_API_KEY?.trim() || null;
         if (provider === 'google') return process.env.GEMINI_API_KEY?.trim() || null;
+        if (provider === 'byteplus') return process.env.BYTEPLUS_API_KEY?.trim() || null;
         return null;
     }
 
     // Normal users provide their key via headers
+    if (provider === 'byteplus') return req.headers.get('x-byteplus-key');
     const headerKey = provider === 'openai'
         ? req.headers.get('x-openai-key')
         : req.headers.get('x-google-key');
@@ -56,7 +58,8 @@ export function getApiKey(
 /**
  * Determine which provider a model belongs to
  */
-export function getProviderForModel(modelId: string): 'openai' | 'google' {
+export function getProviderForModel(modelId: string): 'openai' | 'google' | 'byteplus' {
     if (modelId.startsWith('sora-')) return 'openai';
+    if (modelId.startsWith('seedream-')) return 'byteplus';
     return 'google'; // gemini, imagen, veo
 }

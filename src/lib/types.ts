@@ -123,6 +123,18 @@ export const IMAGE_MODELS: ModelInfo[] = [
         available: true,
         badge: 'NEW',
     },
+    {
+        id: 'seedream-5.0-lite',
+        name: 'Nano Banana Pro — Seedream',
+        description: 'Seedream 5.0 Lite — deep reasoning, real-time search, 2K/4K',
+        pricePerImage: 0.035,
+        speed: 'standard',
+        quality: 'ultra',
+        maxAspectRatios: ['9:16', '1:1', '16:9'],
+        type: 'image',
+        available: true,
+        badge: 'NEW',
+    },
 ];
 
 export const VIDEO_MODELS: ModelInfo[] = [
