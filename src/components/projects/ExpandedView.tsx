@@ -211,12 +211,6 @@ export default function ExpandedView({ generation, allGenerations, preprompts, o
                 </div>
                 {/* Header — row 2: actions */}
                 <div className="flex items-center gap-2 px-4 pb-3 border-b border-gray-100">
-                    <button
-                        onClick={handleDelete}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors text-sm"
-                    >
-                        <Trash2 className="w-3.5 h-3.5" />
-                    </button>
                     {generation.type === 'image' && generation.output_url && onEdit && (
                         <button
                             onClick={() => { onEdit(generation.output_url!); onClose(); }}
@@ -238,6 +232,13 @@ export default function ExpandedView({ generation, allGenerations, preprompts, o
                             Formats
                         </button>
                     )}
+                    <div className="flex-1" />
+                    <button
+                        onClick={handleDelete}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors text-sm"
+                    >
+                        <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                 </div>
 
                 {/* Details */}

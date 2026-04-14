@@ -21,17 +21,18 @@ export async function generateSeedreamImage(
     const key = apiKey || BYTEPLUS_API_KEY;
     if (!key) throw new Error('BytePlus API key not configured');
 
-    // Seedream uses aspect ratio hints in the prompt, not in the size param
-    let enhancedPrompt = prompt;
-    if (aspectRatio === '1:1') enhancedPrompt = `[Square 1:1 format] ${enhancedPrompt}`;
-    else if (aspectRatio === '9:16') enhancedPrompt = `[Portrait 9:16 format] ${enhancedPrompt}`;
-    else if (aspectRatio === '16:9') enhancedPrompt = `[Landscape 16:9 format] ${enhancedPrompt}`;
+    // Seedream size param accepts WIDTHxHEIGHT, 2k, or 3k
+    const sizeMap: Record<string, string> = {
+        '1:1': '2k',
+        '9:16': '1440x2560',
+        '16:9': '2560x1440',
+    };
 
     // Build request body matching the official BytePlus API format
     const body: Record<string, unknown> = {
         model: SEEDREAM_MODEL_ID,
-        prompt: enhancedPrompt,
-        size: '2K',
+        prompt,
+        size: sizeMap[aspectRatio] || '2k',
         response_format: 'url',
         sequential_image_generation: 'disabled',
         stream: false,
