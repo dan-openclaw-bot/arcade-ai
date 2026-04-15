@@ -59,7 +59,7 @@ export function getApiKey(
  * Determine which provider a model belongs to
  */
 export function getProviderForModel(modelId: string): 'openai' | 'google' | 'byteplus' {
-    if (modelId.startsWith('sora-')) return 'openai';
+    if (modelId.startsWith('sora-') || modelId.startsWith('gpt-image-')) return 'openai';
     if (modelId.startsWith('seedream-')) return 'byteplus';
     return 'google'; // gemini, imagen, veo
 }

@@ -10,6 +10,58 @@ function getOpenAI(apiKey?: string): OpenAI {
 }
 
 /**
+ * Check if a model ID is an OpenAI image model
+ */
+export function isOpenAIImageModel(modelId: string): boolean {
+    return modelId.startsWith('gpt-image-');
+}
+
+/**
+ * Generate a single image using GPT Image models
+ */
+export async function generateGPTImage(
+    prompt: string,
+    aspectRatio: string = '1:1',
+    referenceImageUrls: string[] = [],
+    apiKey?: string,
+): Promise<{ base64: string; mimeType: string } | null> {
+    const sizeMap: Record<string, string> = {
+        '1:1': '1024x1024',
+        '9:16': '1024x1536',
+        '16:9': '1536x1024',
+    };
+
+    const openai = getOpenAI(apiKey);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const params: any = {
+        model: 'gpt-image-1.5',
+        prompt,
+        n: 1,
+        size: sizeMap[aspectRatio] || '1024x1024',
+        quality: 'medium',
+    };
+
+    const response = await openai.images.generate(params);
+
+    const imageData = response.data?.[0];
+    if (!imageData) return null;
+
+    if (imageData.b64_json) {
+        return { base64: imageData.b64_json, mimeType: 'image/png' };
+    }
+
+    if (imageData.url) {
+        const imgRes = await fetch(imageData.url);
+        const buffer = Buffer.from(await imgRes.arrayBuffer());
+        const contentType = imgRes.headers.get('content-type') || 'image/png';
+        return { base64: buffer.toString('base64'), mimeType: contentType };
+    }
+
+    return null;
+}
+
+/**
  * Generate a video using Sora 2 models
  * Returns an operation/job ID for polling
  */

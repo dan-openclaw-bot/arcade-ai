@@ -7,6 +7,7 @@ import { createServerSupabaseClient } from '@/lib/supabase';
 import { getAuthClient, getApiKey, isAdmin, getProviderForModel } from '@/lib/auth';
 import { generateSingleImage } from '@/lib/gemini';
 import { generateSeedreamImage, isBytePlusModel } from '@/lib/byteplus';
+import { generateGPTImage, isOpenAIImageModel } from '@/lib/openai';
 import { IMAGE_MODELS } from '@/lib/types';
 
 /**
@@ -88,12 +89,18 @@ export async function POST(req: NextRequest) {
         const provider = getProviderForModel(body.model || '');
         const adminUser = isAdmin(user.id);
 
-        // BytePlus models use server-side key (available to all users)
         let googleKey: string | null = null;
         let byteplusKey: string | null = null;
+        let openaiKey: string | null = null;
 
-        if (provider === 'byteplus') {
-            // Admin uses server-side key, users must provide their own
+        if (provider === 'openai') {
+            openaiKey = adminUser
+                ? (process.env.OPENAI_API_KEY?.trim() || null)
+                : getApiKey(req, 'openai', user.id);
+            if (!openaiKey) {
+                return NextResponse.json({ error: 'Clé API OpenAI requise. Configurez-la dans Paramètres.', missingKeyProvider: 'openai' }, { status: 400 });
+            }
+        } else if (provider === 'byteplus') {
             byteplusKey = adminUser
                 ? (process.env.BYTEPLUS_API_KEY?.trim() || null)
                 : getApiKey(req, 'byteplus', user.id);
@@ -194,15 +201,20 @@ export async function POST(req: NextRequest) {
                             .eq('id', record.id);
                     }
 
-                    const imageData = isBytePlusModel(model)
-                        ? await generateSeedreamImage(
+                    const imageData = isOpenAIImageModel(model)
+                        ? await generateGPTImage(
                             finalPrompt, aspect_ratio,
-                            reference_image_urls || [], byteplusKey || undefined
+                            reference_image_urls || [], openaiKey || undefined
                         )
-                        : await generateSingleImage(
-                            finalPrompt, model, aspect_ratio,
-                            reference_image_urls || [], quality_suffix, negative_prompt, googleKey || undefined
-                        );
+                        : isBytePlusModel(model)
+                            ? await generateSeedreamImage(
+                                finalPrompt, aspect_ratio,
+                                reference_image_urls || [], byteplusKey || undefined
+                            )
+                            : await generateSingleImage(
+                                finalPrompt, model, aspect_ratio,
+                                reference_image_urls || [], quality_suffix, negative_prompt, googleKey || undefined
+                            );
 
                     if (!imageData?.base64) {
                         await supabase
