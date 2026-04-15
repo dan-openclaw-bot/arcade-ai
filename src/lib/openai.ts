@@ -17,7 +17,9 @@ export function isOpenAIImageModel(modelId: string): boolean {
 }
 
 /**
- * Generate a single image using GPT Image models
+ * Generate or edit a single image using GPT Image models.
+ * With reference images → /images/edits (up to 16 images).
+ * Without → /images/generations.
  */
 export async function generateGPTImage(
     prompt: string,
@@ -32,17 +34,41 @@ export async function generateGPTImage(
     };
 
     const openai = getOpenAI(apiKey);
+    const size = sizeMap[aspectRatio] || '1024x1024';
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const params: any = {
-        model: 'gpt-image-1.5',
-        prompt,
-        n: 1,
-        size: sizeMap[aspectRatio] || '1024x1024',
-        quality: 'medium',
-    };
+    let response: any;
 
-    const response = await openai.images.generate(params);
+    if (referenceImageUrls.length > 0) {
+        // Use /images/edits with reference images
+        const { toFile } = await import('openai');
+
+        // Download reference images and convert to Uploadable files
+        const imageFiles = await Promise.all(
+            referenceImageUrls.slice(0, 16).map(async (url, i) => {
+                const imgRes = await fetch(url);
+                const buffer = Buffer.from(await imgRes.arrayBuffer());
+                return toFile(buffer, `ref_${i}.png`, { type: 'image/png' });
+            })
+        );
+
+        response = await openai.images.edit({
+            model: 'gpt-image-1.5',
+            prompt,
+            image: imageFiles,
+            size: size as '1024x1024' | '1024x1536' | '1536x1024',
+            quality: 'medium' as 'low' | 'medium' | 'high',
+        } as Parameters<typeof openai.images.edit>[0]);
+    } else {
+        // Text-to-image generation
+        response = await openai.images.generate({
+            model: 'gpt-image-1.5',
+            prompt,
+            n: 1,
+            size: size as '1024x1024' | '1024x1536' | '1536x1024',
+            quality: 'medium' as 'low' | 'medium' | 'high',
+        } as Parameters<typeof openai.images.generate>[0]);
+    }
 
     const imageData = response.data?.[0];
     if (!imageData) return null;
