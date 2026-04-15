@@ -293,8 +293,10 @@ export default function ProjectPage() {
                     const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
                     const openaiKey = typeof window !== 'undefined' ? localStorage.getItem('openai_key') : null;
                     const googleKey = typeof window !== 'undefined' ? localStorage.getItem('google_key') : null;
+                    const byteplusKey = typeof window !== 'undefined' ? localStorage.getItem('byteplus_key') : null;
                     if (openaiKey) apiHeaders['x-openai-key'] = openaiKey;
                     if (googleKey) apiHeaders['x-google-key'] = googleKey;
+                    if (byteplusKey) apiHeaders['x-byteplus-key'] = byteplusKey;
 
                     const res = await fetch('/api/generate/image', {
                         method: 'POST',

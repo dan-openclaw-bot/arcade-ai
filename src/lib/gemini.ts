@@ -222,7 +222,7 @@ export async function generateImages(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const generationConfig: any = { responseModalities: ['TEXT', 'IMAGE'] };
             if (mappedRatio !== '1:1') {
-                generationConfig.imageGenerationConfig = { aspectRatio: mappedRatio };
+                generationConfig.imageConfig = { aspectRatio: mappedRatio };
             }
             const body = {
                 contents: [{ role: 'user', parts: contents }],
